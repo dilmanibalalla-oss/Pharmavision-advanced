@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from './api';
+import { api, getToken, setToken } from './api';
 import { treatmentLines } from './format';
+import { LoginScreen } from './components/LoginScreen';
 import { MedicineCatalog } from './components/MedicineCatalog';
 import { PatientChart } from './components/PatientChart';
 import { PatientForm } from './components/PatientForm';
@@ -27,6 +28,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [busyId, setBusyId] = useState('');
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
+  const [session, setSession] = useState('checking');
+  const [user, setUser] = useState(null);
   const layer = useRef({ form: null, pending: null });
   const queryRef = useRef('');
   const opening = useRef(false);
@@ -53,6 +56,31 @@ export default function App() {
   }, [query]);
 
   useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setSession('out');
+      return undefined;
+    }
+    let ignore = false;
+    api.me()
+      .then((data) => {
+        if (ignore) return;
+        setUser(data.user);
+        setSession('in');
+      })
+      .catch(() => {
+        if (ignore) return;
+        setToken('');
+        setUser(null);
+        setSession('out');
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (session !== 'in') return undefined;
     let ignore = false;
     setLoading(true);
     api.patients(debouncedQuery)
@@ -70,9 +98,10 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, session]);
 
   useEffect(() => {
+    if (session !== 'in') return undefined;
     let ignore = false;
     Promise.all([api.stats(), api.medicines()])
       .then(([nextStats, rows]) => {
@@ -86,7 +115,7 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -134,6 +163,15 @@ export default function App() {
       }
       return { key, dir: 'asc' };
     });
+  }
+
+  function signOut() {
+    setToken('');
+    setUser(null);
+    setSession('out');
+    setSelected(null);
+    setForm(null);
+    setPendingDelete(null);
   }
 
   function switchSection(next) {
@@ -200,6 +238,23 @@ export default function App() {
     await loadStats();
   }
 
+  if (session !== 'in') {
+    return (
+      <div className="shell login-shell">
+        {session === 'checking' ? (
+          <p className="empty">Opening the daybook…</p>
+        ) : (
+          <LoginScreen
+            onSuccess={(nextUser) => {
+              setUser(nextUser);
+              setSession('in');
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',
@@ -241,6 +296,13 @@ export default function App() {
             </div>
           </dl>
           <p className="rail-note">Selecting a patient records a visit and adds one to their visit count.</p>
+          {user ? (
+            <div className="who">
+              <p className="who-name">{user.name}</p>
+              <p className="who-role">{user.role}</p>
+            </div>
+          ) : null}
+          <button type="button" className="rail-signout" onClick={signOut}>Sign out</button>
         </aside>
 
         <main className="stage">

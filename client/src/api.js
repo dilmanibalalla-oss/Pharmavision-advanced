@@ -1,12 +1,27 @@
+const TOKEN_KEY = 'helio.token';
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || '';
+}
+
+export function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request(path, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   let response;
   try {
     response = await fetch(path, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
       ...options,
+      headers,
     });
   } catch {
     throw new Error('Cannot reach the clinic server. Leave this page open and check that the API is running.');
@@ -20,6 +35,8 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  login: (body) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
+  me: () => request('/api/auth/me'),
   stats: () => request('/api/stats'),
   patients: (q = '') => request(`/api/patients${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   createPatient: (body) => request('/api/patients', { method: 'POST', body: JSON.stringify(body) }),

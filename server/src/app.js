@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import authRouter from './routes/auth.js';
 import patientsRouter from './routes/patients.js';
 import medicinesRouter from './routes/medicines.js';
 import Patient from './models/Patient.js';
@@ -49,6 +50,7 @@ app.get('/api/stats', async (_req, res) => {
   });
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/patients', patientsRouter);
 app.use('/api/medicines', medicinesRouter);
 
@@ -56,6 +58,9 @@ app.use((error, _req, res, _next) => {
   console.error(error);
   if (error.code === 'NO_URI') {
     return res.status(500).json({ message: 'The clinic database is not configured' });
+  }
+  if (error.code === 'NO_SECRET') {
+    return res.status(500).json({ message: 'Sign-in is not configured' });
   }
   if (error.name === 'ValidationError') {
     return res.status(400).json({ message: 'Check those details and try again' });
