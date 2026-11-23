@@ -8,6 +8,10 @@ import dashboardRouter from './routes/dashboard.js';
 import doctorsRouter from './routes/doctors.js';
 import consultationsRouter from './routes/consultations.js';
 import treatmentPlansRouter from './routes/treatmentPlans.js';
+import suppliersRouter from './routes/suppliers.js';
+import purchaseOrdersRouter from './routes/purchaseOrders.js';
+import inventoryRouter from './routes/inventory.js';
+import dispensingRouter from './routes/dispensing.js';
 import Patient from './models/Patient.js';
 import Medicine from './models/Medicine.js';
 import { connectDb } from './db.js';
@@ -64,6 +68,10 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/doctors', doctorsRouter);
 app.use('/api/consultations', consultationsRouter);
 app.use('/api/treatment-plans', treatmentPlansRouter);
+app.use('/api/suppliers', suppliersRouter);
+app.use('/api/purchase-orders', purchaseOrdersRouter);
+app.use('/api/inventory', inventoryRouter);
+app.use('/api/dispensing', dispensingRouter);
 
 app.use((error, _req, res, _next) => {
   console.error(error);

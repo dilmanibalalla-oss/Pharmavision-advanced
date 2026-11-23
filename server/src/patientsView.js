@@ -14,6 +14,8 @@ function lineFrom(visit, treatment) {
     strength: treatment.strength || '',
     form: treatment.form || '',
     notes: treatment.notes || '',
+    medicine: treatment.medicine || null,
+    quantity: Number.isInteger(treatment.quantity) ? treatment.quantity : null,
     recordedAt: treatment.recordedAt,
     visitedAt: visit.visitedAt,
   };

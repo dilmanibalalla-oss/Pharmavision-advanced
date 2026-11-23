@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { seedMedicines } from './seed.js';
 import { seedAdmin } from './seedAdmin.js';
 import { assignPatientCodes } from './assignPatientCodes.js';
+import { assignMedicineCodes } from './codes.js';
 
 const cache = globalThis;
 
@@ -19,6 +20,7 @@ export function connectDb() {
         await seedMedicines();
         await seedAdmin();
         await assignPatientCodes();
+        await assignMedicineCodes();
         return connection;
       });
     cache.helioDb = pending;

@@ -20,6 +20,7 @@ import {
   parseEmergencyContact,
   parseList,
   parsePhone,
+  parseQuantity,
 } from '../validate.js';
 
 const router = Router();
@@ -297,12 +298,18 @@ router.post('/:id/treatments', async (req, res) => {
   }
 
   const visit = patient.visits[patient.visits.length - 1];
+  const prescribed = req.body.quantity == null || req.body.quantity === ''
+    ? null
+    : parseQuantity(req.body.quantity, 'Prescribed quantity');
+  if (prescribed?.error) return res.status(400).json({ message: prescribed.error });
+
   visit.treatments.push({
     medicine: medicine._id,
     medicineName: medicine.name,
     strength: medicine.strength,
     form: medicine.form,
     notes: cleanText(req.body.notes, 400),
+    ...(prescribed ? { quantity: prescribed.quantity } : {}),
     recordedAt: new Date(),
   });
   await patient.save();

@@ -11,6 +11,10 @@ import { DoctorDesk } from './components/DoctorDesk';
 import { PatientDesk } from './components/PatientDesk';
 import { ConsultationDesk } from './components/ConsultationDesk';
 import { TreatmentDesk } from './components/TreatmentDesk';
+import { SupplierDesk } from './components/SupplierDesk';
+import { PurchaseDesk } from './components/PurchaseDesk';
+import { InventoryDesk } from './components/InventoryDesk';
+import { DispenseDesk } from './components/DispenseDesk';
 
 function sectionFromPath(pathname) {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
@@ -20,6 +24,10 @@ function sectionFromPath(pathname) {
   if (pathname.startsWith('/users')) return 'users';
   if (pathname.startsWith('/consultations')) return 'consultations';
   if (pathname.startsWith('/treatment-plans')) return 'treatment-plans';
+  if (pathname.startsWith('/suppliers')) return 'suppliers';
+  if (pathname.startsWith('/purchases')) return 'purchases';
+  if (pathname.startsWith('/inventory')) return 'inventory';
+  if (pathname.startsWith('/dispensing')) return 'dispensing';
   return 'patients';
 }
 
@@ -138,6 +146,10 @@ export default function App() {
       patients: '/patients',
       consultations: '/consultations',
       'treatment-plans': '/treatment-plans',
+      suppliers: '/suppliers',
+      purchases: '/purchases',
+      inventory: '/inventory',
+      dispensing: '/dispensing',
       medicines: '/medicines',
       users: '/users',
       profile: '/profile',
@@ -153,6 +165,10 @@ export default function App() {
   const readPatients = can(user?.role, 'patients', 'read');
   const readConsultations = can(user?.role, 'consultations', 'read');
   const readTreatments = can(user?.role, 'treatments', 'read');
+  const readSuppliers = can(user?.role, 'suppliers', 'read');
+  const readPurchases = can(user?.role, 'purchases', 'read');
+  const readInventory = can(user?.role, 'inventory', 'read');
+  const readDispensing = can(user?.role, 'dispensing', 'read');
   const writePatients = can(user?.role, 'patients', 'write');
   const readMedicines = can(user?.role, 'medicines', 'read');
   const writeMedicines = can(user?.role, 'medicines', 'write');
@@ -217,6 +233,26 @@ export default function App() {
                 Treatment plans
               </button>
             ) : null}
+            {readDispensing ? (
+              <button type="button" className={section === 'dispensing' ? 'is-on' : undefined} onClick={() => switchSection('dispensing')}>
+                Dispensing
+              </button>
+            ) : null}
+            {readInventory ? (
+              <button type="button" className={section === 'inventory' ? 'is-on' : undefined} onClick={() => switchSection('inventory')}>
+                Inventory
+              </button>
+            ) : null}
+            {readPurchases ? (
+              <button type="button" className={section === 'purchases' ? 'is-on' : undefined} onClick={() => switchSection('purchases')}>
+                Purchases
+              </button>
+            ) : null}
+            {readSuppliers ? (
+              <button type="button" className={section === 'suppliers' ? 'is-on' : undefined} onClick={() => switchSection('suppliers')}>
+                Suppliers
+              </button>
+            ) : null}
             {readPatients ? (
               <button type="button" className={section === 'patients' ? 'is-on' : undefined} onClick={() => switchSection('patients')}>
                 Patients
@@ -277,10 +313,18 @@ export default function App() {
             <ConsultationDesk actor={user} onToast={notify} />
           ) : section === 'treatment-plans' ? (
             <TreatmentDesk actor={user} onToast={notify} />
+          ) : section === 'suppliers' ? (
+            <SupplierDesk actor={user} onToast={notify} />
+          ) : section === 'purchases' ? (
+            <PurchaseDesk actor={user} onToast={notify} />
+          ) : section === 'inventory' ? (
+            <InventoryDesk actor={user} onToast={notify} />
+          ) : section === 'dispensing' ? (
+            <DispenseDesk onToast={notify} />
           ) : section === 'patients' ? (
             <PatientDesk actor={user} onToast={notify} onStats={loadStats} />
           ) : section === 'medicines' ? (
-            <MedicineCatalog medicines={medicines} onRefresh={refreshCatalog} onToast={notify} canWrite={writeMedicines} />
+            <MedicineCatalog onRefresh={refreshCatalog} onToast={notify} canWrite={writeMedicines} />
           ) : section === 'users' ? (
             <UserAdmin actor={user} onToast={notify} />
           ) : (
