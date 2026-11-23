@@ -11,6 +11,7 @@ import {
 } from '../access.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { recordAudit } from '../audit.js';
 import {
   cleanText,
   escapeRegex,
@@ -185,6 +186,7 @@ router.post('/', requireRole(...CONSULTATION_WRITE), async (req, res) => {
   });
   remember(record, req.user, 'created', ['patient', 'doctor', 'consultedAt', 'chiefComplaint']);
   await record.save();
+  await recordAudit(req, { action: 'consultation', entityType: 'consultation', entityId: record._id, summary: 'Consultation recorded' });
   res.status(201).json(presentConsultation(record));
 });
 

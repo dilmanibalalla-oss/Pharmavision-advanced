@@ -6,6 +6,7 @@ import { DISPENSE_READ } from '../access.js';
 import { dispense, planFefo, StockError } from '../controllers/stock.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { recordAudit } from '../audit.js';
 import { cleanText, escapeRegex } from '../validate.js';
 
 const router = Router();
@@ -87,6 +88,9 @@ router.get('/history', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const result = await dispense(req.body, req.user);
+    if (!result.replay) {
+      await recordAudit(req, { action: 'dispensing', entityType: 'dispensing', entityId: result._id, summary: 'Medicine dispensed' });
+    }
     res.status(result.replay ? 200 : 201).json(result);
   } catch (error) {
     sendError(res, error);

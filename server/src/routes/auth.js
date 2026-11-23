@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import User, { publicUser } from '../models/User.js';
 import { USER_ROLES, canonicalRole } from '../access.js';
 import { cleanText } from '../validate.js';
+import { recordAudit } from '../audit.js';
+import { rateLimit } from '../middleware/security.js';
 import {
   clearAuthCookies,
   clearSession,
@@ -12,12 +14,13 @@ import {
 } from '../middleware/auth.js';
 
 const router = Router();
+const limitLogin = rateLimit({ name: 'LOGIN', limit: 100, windowMs: 60 * 1000 });
 
 function readPassword(value) {
   return String(value ?? '');
 }
 
-router.post('/login', async (req, res) => {
+router.post('/login', limitLogin, async (req, res) => {
   const email = cleanText(req.body.email, 160).toLowerCase();
   const password = readPassword(req.body.password);
   if (!email || !email.includes('@') || !password || password.length > 200) {
@@ -33,6 +36,8 @@ router.post('/login', async (req, res) => {
 
   user.role = role;
   await issueSession(res, user);
+  req.user = user;
+  await recordAudit(req, { action: 'login', entityType: 'user', entityId: user._id, summary: 'Signed in' });
   res.json({ user: publicUser(user) });
 });
 
@@ -49,6 +54,9 @@ router.post('/refresh', async (req, res) => {
 });
 
 router.post('/logout', async (req, res) => {
+  const user = await findRefreshUser(req);
+  if (user) req.user = user;
+  await recordAudit(req, { action: 'logout', entityType: 'user', entityId: user?._id, summary: 'Signed out' });
   await clearSession(req);
   clearAuthCookies(res);
   res.json({ ok: true });

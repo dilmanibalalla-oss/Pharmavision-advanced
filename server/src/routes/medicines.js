@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Medicine, { presentMedicine } from '../models/Medicine.js';
 import { MEDICINE_READ, MEDICINE_WRITE } from '../access.js';
 import { allocateCode } from '../codes.js';
+import { recordAudit } from '../audit.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import {
@@ -184,6 +185,7 @@ router.post('/', requireRole(...MEDICINE_WRITE), async (req, res) => {
       medicineCode: await allocateCode('medicine', 'MED'),
       barcode: parsed.fields.barcode || undefined,
     });
+    await recordAudit(req, { action: 'medicine-created', entityType: 'medicine', entityId: medicine._id, summary: `Medicine ${medicine.name} added` });
     res.status(201).json(presentMedicine(medicine));
   } catch (error) {
     if (error.code === 11000) return res.status(409).json({ message: 'That medicine is already in the catalog' });

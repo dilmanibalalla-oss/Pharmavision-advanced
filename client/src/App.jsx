@@ -15,6 +15,11 @@ import { SupplierDesk } from './components/SupplierDesk';
 import { PurchaseDesk } from './components/PurchaseDesk';
 import { InventoryDesk } from './components/InventoryDesk';
 import { DispenseDesk } from './components/DispenseDesk';
+import { ShelfDesk } from './components/ShelfDesk';
+import { ScanDesk } from './components/ScanDesk';
+import { AlertDesk } from './components/AlertDesk';
+import { ReportsDesk } from './components/ReportsDesk';
+import { AuditDesk } from './components/AuditDesk';
 
 function sectionFromPath(pathname) {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
@@ -28,6 +33,11 @@ function sectionFromPath(pathname) {
   if (pathname.startsWith('/purchases')) return 'purchases';
   if (pathname.startsWith('/inventory')) return 'inventory';
   if (pathname.startsWith('/dispensing')) return 'dispensing';
+  if (pathname.startsWith('/shelves')) return 'shelves';
+  if (pathname.startsWith('/scans')) return 'scans';
+  if (pathname.startsWith('/alerts')) return 'alerts';
+  if (pathname.startsWith('/reports')) return 'reports';
+  if (pathname.startsWith('/audit')) return 'audit';
   return 'patients';
 }
 
@@ -150,6 +160,11 @@ export default function App() {
       purchases: '/purchases',
       inventory: '/inventory',
       dispensing: '/dispensing',
+      shelves: '/shelves',
+      scans: '/scans',
+      alerts: '/alerts',
+      reports: '/reports',
+      audit: '/audit',
       medicines: '/medicines',
       users: '/users',
       profile: '/profile',
@@ -169,6 +184,11 @@ export default function App() {
   const readPurchases = can(user?.role, 'purchases', 'read');
   const readInventory = can(user?.role, 'inventory', 'read');
   const readDispensing = can(user?.role, 'dispensing', 'read');
+  const readShelves = can(user?.role, 'shelves', 'read');
+  const readScans = can(user?.role, 'scans', 'read');
+  const readAlerts = can(user?.role, 'alerts', 'read');
+  const readReports = can(user?.role, 'reports', 'read');
+  const readAudit = can(user?.role, 'audit', 'read');
   const writePatients = can(user?.role, 'patients', 'write');
   const readMedicines = can(user?.role, 'medicines', 'read');
   const writeMedicines = can(user?.role, 'medicines', 'write');
@@ -253,6 +273,31 @@ export default function App() {
                 Suppliers
               </button>
             ) : null}
+            {readReports ? (
+              <button type="button" className={section === 'reports' ? 'is-on' : undefined} onClick={() => switchSection('reports')}>
+                Reports
+              </button>
+            ) : null}
+            {readShelves ? (
+              <button type="button" className={section === 'shelves' ? 'is-on' : undefined} onClick={() => switchSection('shelves')}>
+                Shelves
+              </button>
+            ) : null}
+            {readScans ? (
+              <button type="button" className={section === 'scans' ? 'is-on' : undefined} onClick={() => switchSection('scans')}>
+                Scans
+              </button>
+            ) : null}
+            {readAlerts ? (
+              <button type="button" className={section === 'alerts' ? 'is-on' : undefined} onClick={() => switchSection('alerts')}>
+                Discrepancies
+              </button>
+            ) : null}
+            {readAudit ? (
+              <button type="button" className={section === 'audit' ? 'is-on' : undefined} onClick={() => switchSection('audit')}>
+                Audit log
+              </button>
+            ) : null}
             {readPatients ? (
               <button type="button" className={section === 'patients' ? 'is-on' : undefined} onClick={() => switchSection('patients')}>
                 Patients
@@ -321,6 +366,16 @@ export default function App() {
             <InventoryDesk actor={user} onToast={notify} />
           ) : section === 'dispensing' ? (
             <DispenseDesk onToast={notify} />
+          ) : section === 'shelves' ? (
+            <ShelfDesk actor={user} onToast={notify} />
+          ) : section === 'scans' ? (
+            <ScanDesk actor={user} onToast={notify} />
+          ) : section === 'alerts' ? (
+            <AlertDesk actor={user} onToast={notify} />
+          ) : section === 'reports' ? (
+            <ReportsDesk />
+          ) : section === 'audit' ? (
+            <AuditDesk />
           ) : section === 'patients' ? (
             <PatientDesk actor={user} onToast={notify} onStats={loadStats} />
           ) : section === 'medicines' ? (
