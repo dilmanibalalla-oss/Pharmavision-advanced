@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import Patient from '../models/Patient.js';
 import Medicine from '../models/Medicine.js';
 import User from '../models/User.js';
-import { DASHBOARD_READ } from '../access.js';
+import { DASHBOARD_READ, DOCTOR_STORED_ROLES } from '../access.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 
@@ -151,7 +151,7 @@ router.get('/', requireAuth, requireRole(...DASHBOARD_READ), async (_req, res) =
         },
       },
     ]),
-    User.countDocuments({ role: { $in: ['DOCTOR', 'doctor'] }, active: { $ne: false } }),
+    User.countDocuments({ role: { $in: DOCTOR_STORED_ROLES }, active: { $ne: false } }),
     db.collection('suppliers').countDocuments(),
     db.collection('stockmovements').find({}).sort({ createdAt: -1 }).limit(6).toArray(),
     db.collection('investigations').find({ status: { $in: ['pending', 'open'] } }).sort({ createdAt: -1 }).limit(6).toArray(),

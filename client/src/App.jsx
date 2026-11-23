@@ -11,6 +11,7 @@ import { PatientTable } from './components/PatientTable';
 import { ProfileScreen } from './components/ProfileScreen';
 import { UserAdmin } from './components/UserAdmin';
 import { AdminDashboard } from './components/AdminDashboard';
+import { DoctorDesk } from './components/DoctorDesk';
 
 function sortValue(patient, key) {
   if (key === 'allergies') return patient.allergies.join(', ');
@@ -20,6 +21,7 @@ function sortValue(patient, key) {
 
 function sectionFromPath(pathname) {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
+  if (pathname.startsWith('/doctors')) return 'doctors';
   if (pathname.startsWith('/medicines')) return 'medicines';
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname.startsWith('/users')) return 'users';
@@ -223,6 +225,7 @@ export default function App() {
   function switchSection(next) {
     const paths = {
       dashboard: '/dashboard',
+      doctors: '/doctors',
       patients: '/patients',
       medicines: '/medicines',
       users: '/users',
@@ -303,6 +306,7 @@ export default function App() {
   const writeMedicines = can(user?.role, 'medicines', 'write');
   const readUsers = can(user?.role, 'users', 'read');
   const readDashboard = can(user?.role, 'dashboard', 'read');
+  const readDoctors = can(user?.role, 'doctors', 'read');
   const onAllowedPage = Boolean(user && sectionAllowed(user.role, location.pathname));
 
   if (session !== 'in') {
@@ -344,6 +348,11 @@ export default function App() {
             {readDashboard ? (
               <button type="button" className={section === 'dashboard' ? 'is-on' : undefined} onClick={() => switchSection('dashboard')}>
                 Dashboard
+              </button>
+            ) : null}
+            {readDoctors ? (
+              <button type="button" className={section === 'doctors' ? 'is-on' : undefined} onClick={() => switchSection('doctors')}>
+                Doctors
               </button>
             ) : null}
             {readPatients ? (
@@ -400,6 +409,8 @@ export default function App() {
             <p className="empty">Opening the daybook…</p>
           ) : section === 'dashboard' ? (
             <AdminDashboard />
+          ) : section === 'doctors' ? (
+            <DoctorDesk actor={user} onToast={notify} />
           ) : section === 'patients' ? (
             <section>
               <header className="stage-head">

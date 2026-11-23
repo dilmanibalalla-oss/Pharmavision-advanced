@@ -14,6 +14,10 @@ const ACCESS = {
   dashboard: {
     read: ['ADMIN'],
   },
+  doctors: {
+    read: ['ADMIN', 'SECURITY_OFFICER', 'DOCTOR'],
+    write: ['ADMIN'],
+  },
 };
 
 export function can(role, area, action) {
@@ -33,6 +37,7 @@ export function homePath(role) {
 
 export function sectionAllowed(role, pathname) {
   if (pathname.startsWith('/dashboard')) return can(role, 'dashboard', 'read');
+  if (pathname.startsWith('/doctors')) return can(role, 'doctors', 'read');
   if (pathname.startsWith('/patients')) return can(role, 'patients', 'read');
   if (pathname.startsWith('/medicines')) return can(role, 'medicines', 'read');
   if (pathname.startsWith('/users')) return can(role, 'users', 'read');
