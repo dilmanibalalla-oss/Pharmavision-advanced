@@ -15,7 +15,7 @@ export async function seedAdmin() {
       name,
       email: email.slice(0, 160),
       passwordHash: await bcrypt.hash(password, 10),
-      role: 'admin',
+      role: 'ADMIN',
       active: true,
     });
   } catch (error) {

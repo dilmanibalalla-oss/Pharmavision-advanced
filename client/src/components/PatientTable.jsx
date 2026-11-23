@@ -32,6 +32,7 @@ export function PatientTable({
   onDelete,
   busyId,
   selectedId,
+  canWrite = true,
 }) {
   if (loading && patients.length === 0) {
     return <p className="empty">Opening the daybook…</p>;
@@ -99,26 +100,30 @@ export function PatientTable({
                   <Summary items={treatmentLines(patient)} />
                 </td>
                 <td className="row-actions">
-                  <button
-                    type="button"
-                    className="text-btn"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onEdit(patient);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="text-btn danger-text"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDelete(patient);
-                    }}
-                  >
-                    Delete
-                  </button>
+                  {canWrite ? (
+                    <>
+                      <button
+                        type="button"
+                        className="text-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEdit(patient);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-btn danger-text"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDelete(patient);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  ) : null}
                 </td>
               </tr>
             );

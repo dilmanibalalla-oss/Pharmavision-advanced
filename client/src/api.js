@@ -1,30 +1,25 @@
-const TOKEN_KEY = 'helio.token';
+localStorage.removeItem('helio.token');
 
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY) || '';
-}
-
-export function setToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
-}
-
-async function request(path, options = {}) {
+async function request(path, options = {}, allowRefresh = true) {
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
   };
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
 
   let response;
   try {
     response = await fetch(path, {
       ...options,
       headers,
+      credentials: 'include',
     });
   } catch {
     throw new Error('Cannot reach the clinic server. Leave this page open and check that the API is running.');
+  }
+
+  if (response.status === 401 && allowRefresh && !path.startsWith('/api/auth/')) {
+    const refreshed = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+    if (refreshed.ok) return request(path, options, false);
   }
 
   const data = await response.json().catch(() => ({}));
@@ -35,10 +30,17 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  login: (body) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
-  me: () => request('/api/auth/me'),
+  login: (body) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }, false),
+  refresh: () => request('/api/auth/refresh', { method: 'POST' }, false),
+  logout: () => request('/api/auth/logout', { method: 'POST' }, false),
+  me: () => request('/api/auth/me', {}, false),
+  updateProfile: (body) => request('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(body) }),
+  changePassword: (body) => request('/api/auth/password', { method: 'POST', body: JSON.stringify(body) }),
+  users: () => request('/api/users'),
+  setUserActive: (id, active) => request(`/api/users/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) }),
   stats: () => request('/api/stats'),
   patients: (q = '') => request(`/api/patients${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  patient: (id) => request(`/api/patients/${id}`),
   createPatient: (body) => request('/api/patients', { method: 'POST', body: JSON.stringify(body) }),
   updatePatient: (id, body) => request(`/api/patients/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deletePatient: (id) => request(`/api/patients/${id}`, { method: 'DELETE' }),

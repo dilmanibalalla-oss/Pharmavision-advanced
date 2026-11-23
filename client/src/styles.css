@@ -488,6 +488,10 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
   text-transform: capitalize;
 }
 
+.role-label { text-transform: capitalize; }
+
+.profile-form { max-width: 420px; }
+
 .rail-signout {
   background: transparent;
   color: var(--rail-ink);

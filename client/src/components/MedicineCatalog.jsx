@@ -4,7 +4,7 @@ import { MEDICINE_FORMS, medicineLabel } from '../format';
 
 const EMPTY = { name: '', strength: '', form: 'Tablet' };
 
-export function MedicineCatalog({ medicines, onRefresh, onToast }) {
+export function MedicineCatalog({ medicines, onRefresh, onToast, canWrite = true }) {
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState(EMPTY);
   const [editingId, setEditingId] = useState('');
@@ -76,6 +76,7 @@ export function MedicineCatalog({ medicines, onRefresh, onToast }) {
         </p>
       </header>
 
+      {canWrite ? (
       <form className="medicine-form" onSubmit={submit}>
         <label>
           Name
@@ -102,6 +103,7 @@ export function MedicineCatalog({ medicines, onRefresh, onToast }) {
           </button>
         </div>
       </form>
+      ) : null}
 
       <div className="toolbar">
         <label className="search">
@@ -135,8 +137,12 @@ export function MedicineCatalog({ medicines, onRefresh, onToast }) {
                   <td>{medicine.strength || <span className="muted">—</span>}</td>
                   <td>{medicine.form}</td>
                   <td className="row-actions">
-                    <button type="button" className="text-btn" onClick={() => startEdit(medicine)}>Edit</button>
-                    <button type="button" className="text-btn danger-text" onClick={() => setPendingDelete(medicine)}>Delete</button>
+                    {canWrite ? (
+                      <>
+                        <button type="button" className="text-btn" onClick={() => startEdit(medicine)}>Edit</button>
+                        <button type="button" className="text-btn danger-text" onClick={() => setPendingDelete(medicine)}>Delete</button>
+                      </>
+                    ) : null}
                   </td>
                 </tr>
               ))}

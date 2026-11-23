@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, setToken } from '../api';
+import { api } from '../api';
 
 export function LoginScreen({ onSuccess }) {
   const [email, setEmail] = useState('');
@@ -13,7 +13,6 @@ export function LoginScreen({ onSuccess }) {
     setError('');
     try {
       const result = await api.login({ email: email.trim(), password });
-      setToken(result.token);
       onSuccess(result.user);
     } catch (err) {
       setError(err.message);

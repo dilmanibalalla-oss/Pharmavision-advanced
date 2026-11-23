@@ -1,0 +1,36 @@
+const ACCESS = {
+  patients: {
+    read: ['ADMIN', 'DOCTOR', 'PHARMACIST', 'SECURITY_OFFICER', 'DISPENSARY_STAFF'],
+    write: ['ADMIN', 'DOCTOR'],
+  },
+  medicines: {
+    read: ['ADMIN', 'DOCTOR', 'PHARMACIST', 'INVENTORY_MANAGER', 'DISPENSARY_STAFF'],
+    write: ['ADMIN', 'PHARMACIST', 'INVENTORY_MANAGER'],
+  },
+  users: {
+    read: ['ADMIN', 'SECURITY_OFFICER'],
+    write: ['ADMIN'],
+  },
+};
+
+export function can(role, area, action) {
+  return Boolean(ACCESS[area]?.[action]?.includes(role));
+}
+
+export function roleLabel(role) {
+  return String(role || '').toLowerCase().replaceAll('_', ' ');
+}
+
+export function homePath(role) {
+  if (can(role, 'patients', 'read')) return '/patients';
+  if (can(role, 'medicines', 'read')) return '/medicines';
+  return '/profile';
+}
+
+export function sectionAllowed(role, pathname) {
+  if (pathname.startsWith('/patients')) return can(role, 'patients', 'read');
+  if (pathname.startsWith('/medicines')) return can(role, 'medicines', 'read');
+  if (pathname.startsWith('/users')) return can(role, 'users', 'read');
+  if (pathname.startsWith('/profile')) return true;
+  return false;
+}
