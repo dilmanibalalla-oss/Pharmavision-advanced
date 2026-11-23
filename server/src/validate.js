@@ -194,6 +194,28 @@ export function parseSchedule(value) {
   return { slots };
 }
 
+export const TREATMENT_STATUSES = ['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'ON_HOLD'];
+
+export function parsePlanDate(value, label, required = false) {
+  if (value == null || String(value).trim() === '') {
+    if (required) return { error: `${label} is required` };
+    return { date: null };
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value).trim());
+  if (!match) return { error: `${label} is not a valid date` };
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return { error: `${label} is not a valid date` };
+  }
+  if (date.getTime() < Date.UTC(1990, 0, 1)) return { error: `${label} is too far in the past` };
+  const horizon = Date.UTC(new Date().getUTCFullYear() + 5, 11, 31, 12);
+  if (date.getTime() > horizon) return { error: `${label} is too far in the future` };
+  return { date };
+}
+
 export const MEDICINE_FORMS = [
   'Tablet',
   'Capsule',

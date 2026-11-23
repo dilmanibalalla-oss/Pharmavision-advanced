@@ -77,6 +77,19 @@ export const api = {
   consultation: (id) => request(`/api/consultations/${id}`),
   createConsultation: (body) => request('/api/consultations', { method: 'POST', body: JSON.stringify(body) }),
   updateConsultation: (id, body) => request(`/api/consultations/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  treatmentPlans: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/treatment-plans${query ? `?${query}` : ''}`);
+  },
+  treatmentPlan: (id) => request(`/api/treatment-plans/${id}`),
+  createTreatmentPlan: (body) => request('/api/treatment-plans', { method: 'POST', body: JSON.stringify(body) }),
+  updateTreatmentPlan: (id, body) => request(`/api/treatment-plans/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  recordProgress: (id, body) => request(`/api/treatment-plans/${id}/progress`, { method: 'POST', body: JSON.stringify(body) }),
+  scheduleFollowUp: (id, body) => request(`/api/treatment-plans/${id}/follow-up`, { method: 'POST', body: JSON.stringify(body) }),
   createPatient: (body) => request('/api/patients', { method: 'POST', body: JSON.stringify(body) }),
   updatePatient: (id, body) => request(`/api/patients/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deletePatient: (id) => request(`/api/patients/${id}`, { method: 'DELETE' }),

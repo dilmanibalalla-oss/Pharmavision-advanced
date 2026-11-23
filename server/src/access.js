@@ -27,6 +27,8 @@ export const DOCTOR_READ = ['ADMIN', 'SECURITY_OFFICER', 'DOCTOR'];
 export const DOCTOR_WRITE = ['ADMIN'];
 export const CONSULTATION_READ = ['ADMIN', 'DOCTOR'];
 export const CONSULTATION_WRITE = ['ADMIN', 'DOCTOR'];
+export const TREATMENT_READ = ['ADMIN', 'DOCTOR'];
+export const TREATMENT_WRITE = ['ADMIN', 'DOCTOR'];
 
 export function canonicalRole(role) {
   if (USER_ROLES.includes(role)) return role;

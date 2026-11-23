@@ -7,6 +7,7 @@ import medicinesRouter from './routes/medicines.js';
 import dashboardRouter from './routes/dashboard.js';
 import doctorsRouter from './routes/doctors.js';
 import consultationsRouter from './routes/consultations.js';
+import treatmentPlansRouter from './routes/treatmentPlans.js';
 import Patient from './models/Patient.js';
 import Medicine from './models/Medicine.js';
 import { connectDb } from './db.js';
@@ -62,6 +63,7 @@ app.use('/api/medicines', medicinesRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/doctors', doctorsRouter);
 app.use('/api/consultations', consultationsRouter);
+app.use('/api/treatment-plans', treatmentPlansRouter);
 
 app.use((error, _req, res, _next) => {
   console.error(error);
