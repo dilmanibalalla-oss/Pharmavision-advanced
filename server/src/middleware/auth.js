@@ -52,7 +52,7 @@ export function signAccessToken(user) {
   return jwt.sign(
     { sub: String(user._id), role: canonicalRole(user.role) },
     readSecret(),
-    { expiresIn: ACCESS_SECONDS }
+    { expiresIn: ACCESS_SECONDS, algorithm: 'HS256' }
   );
 }
 
@@ -100,7 +100,7 @@ export async function requireAuth(req, res, next) {
     const token = bearer || readCookie(req, 'accessToken');
     if (!token) return res.status(401).json({ message: 'Sign in to continue' });
 
-    const payload = jwt.verify(token, readSecret());
+    const payload = jwt.verify(token, readSecret(), { algorithms: ['HS256'] });
     const user = await User.findById(payload.sub);
     const role = canonicalRole(user?.role);
     if (!user || !user.active || !USER_ROLES.includes(role)) {

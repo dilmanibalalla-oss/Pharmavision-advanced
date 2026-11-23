@@ -7,6 +7,7 @@ import { presentPatient } from '../patientsView.js';
 import { PATIENT_CLINICAL, PATIENT_READ, PATIENT_WRITE, canonicalRole } from '../access.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { recordAudit } from '../audit.js';
 import {
   BLOOD_GROUPS,
   GENDERS,
@@ -177,6 +178,7 @@ router.post('/', async (req, res) => {
     }
   }
   res.status(201).json(presentPatient(patient, true));
+  await recordAudit(req, { action: 'patient-registered', entityType: 'patient', entityId: patient._id, summary: `Patient ${patient.patientCode} registered` });
 });
 
 router.get('/:id/consultations', async (req, res) => {
@@ -313,6 +315,7 @@ router.post('/:id/treatments', async (req, res) => {
     recordedAt: new Date(),
   });
   await patient.save();
+  await recordAudit(req, { action: 'prescription', entityType: 'patient', entityId: patient._id, summary: `Prescription recorded for ${patient.patientCode || 'a patient'}` });
   res.json(patient);
 });
 

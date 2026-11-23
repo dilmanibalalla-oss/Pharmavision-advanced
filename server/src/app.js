@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import patientsRouter from './routes/patients.js';
@@ -12,15 +11,36 @@ import suppliersRouter from './routes/suppliers.js';
 import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import inventoryRouter from './routes/inventory.js';
 import dispensingRouter from './routes/dispensing.js';
+import shelvesRouter from './routes/shelves.js';
+import scansRouter from './routes/scans.js';
+import alertsRouter from './routes/alerts.js';
+import reportsRouter from './routes/reports.js';
+import auditRouter from './routes/audit.js';
 import Patient from './models/Patient.js';
 import Medicine from './models/Medicine.js';
 import { connectDb } from './db.js';
 import { requireAuth } from './middleware/auth.js';
+import { allowedOrigin, rejectOperators, requestId, securityHeaders } from './middleware/security.js';
 
 const app = express();
-const parseJson = express.json({ limit: '1mb' });
+app.disable('x-powered-by');
+app.set('query parser', 'simple');
+const parseJson = express.json({ limit: '8mb' });
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(requestId);
+app.use(securityHeaders);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (!origin) return next();
+  if (!allowedOrigin(origin)) return res.status(403).json({ message: 'This origin is not allowed' });
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Service-Token, X-Request-Id');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  return next();
+});
 app.use((req, res, next) => {
   if (typeof req.body === 'string') {
     try {
@@ -28,10 +48,13 @@ app.use((req, res, next) => {
     } catch {
       req.body = {};
     }
-    return next();
+    return rejectOperators(req, res, next);
   }
-  if (req.body && typeof req.body === 'object') return next();
-  return parseJson(req, res, next);
+  if (req.body && typeof req.body === 'object') return rejectOperators(req, res, next);
+  return parseJson(req, res, (error) => {
+    if (error) return next(error);
+    return rejectOperators(req, res, next);
+  });
 });
 
 app.use(async (_req, _res, next) => {
@@ -72,6 +95,11 @@ app.use('/api/suppliers', suppliersRouter);
 app.use('/api/purchase-orders', purchaseOrdersRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/dispensing', dispensingRouter);
+app.use('/api/shelves', shelvesRouter);
+app.use('/api/scans', scansRouter);
+app.use('/api/alerts', alertsRouter);
+app.use('/api/reports', reportsRouter);
+app.use('/api/audit', auditRouter);
 
 app.use((error, _req, res, _next) => {
   console.error(error);

@@ -43,6 +43,24 @@ const ACCESS = {
     read: ['ADMIN', 'PHARMACIST'],
     write: ['ADMIN', 'PHARMACIST'],
   },
+  shelves: {
+    read: ['ADMIN', 'INVENTORY_MANAGER', 'PHARMACIST', 'SECURITY_OFFICER'],
+    write: ['ADMIN', 'INVENTORY_MANAGER'],
+  },
+  scans: {
+    read: ['ADMIN', 'INVENTORY_MANAGER', 'PHARMACIST', 'SECURITY_OFFICER'],
+    write: ['ADMIN', 'INVENTORY_MANAGER', 'PHARMACIST'],
+  },
+  alerts: {
+    read: ['ADMIN', 'SECURITY_OFFICER', 'INVENTORY_MANAGER'],
+    write: ['ADMIN', 'SECURITY_OFFICER'],
+  },
+  reports: {
+    read: ['ADMIN', 'DOCTOR', 'PHARMACIST', 'INVENTORY_MANAGER', 'SECURITY_OFFICER'],
+  },
+  audit: {
+    read: ['ADMIN', 'SECURITY_OFFICER'],
+  },
 };
 
 export function can(role, area, action) {
@@ -71,6 +89,11 @@ export function sectionAllowed(role, pathname) {
   if (pathname.startsWith('/purchases')) return can(role, 'purchases', 'read');
   if (pathname.startsWith('/inventory')) return can(role, 'inventory', 'read');
   if (pathname.startsWith('/dispensing')) return can(role, 'dispensing', 'read');
+  if (pathname.startsWith('/shelves')) return can(role, 'shelves', 'read');
+  if (pathname.startsWith('/scans')) return can(role, 'scans', 'read');
+  if (pathname.startsWith('/alerts')) return can(role, 'alerts', 'read');
+  if (pathname.startsWith('/reports')) return can(role, 'reports', 'read');
+  if (pathname.startsWith('/audit')) return can(role, 'audit', 'read');
   if (pathname.startsWith('/users')) return can(role, 'users', 'read');
   if (pathname.startsWith('/profile')) return true;
   return false;

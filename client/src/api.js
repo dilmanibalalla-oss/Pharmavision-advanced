@@ -1,3 +1,12 @@
+function queryString(params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+  });
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
+
 localStorage.removeItem('helio.token');
 
 async function request(path, options = {}, allowRefresh = true) {
@@ -189,4 +198,19 @@ export const api = {
     const query = search.toString();
     return request(`/api/dispensing/history${query ? `?${query}` : ''}`);
   },
+  shelves: (params) => request(`/api/shelves${queryString(params)}`),
+  shelf: (id) => request(`/api/shelves/${id}`),
+  createShelf: (body) => request('/api/shelves', { method: 'POST', body: JSON.stringify(body) }),
+  updateShelf: (id, body) => request(`/api/shelves/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  scans: (params) => request(`/api/scans${queryString(params)}`),
+  scan: (id) => request(`/api/scans/${id}`),
+  createScan: (body) => request('/api/scans', { method: 'POST', body: JSON.stringify(body) }),
+  alerts: (params) => request(`/api/alerts${queryString(params)}`),
+  alert: (id) => request(`/api/alerts/${id}`),
+  updateAlert: (id, body) => request(`/api/alerts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  addAlertNote: (id, text) => request(`/api/alerts/${id}/notes`, { method: 'POST', body: JSON.stringify({ text }) }),
+  addAlertEvidence: (id, body) => request(`/api/alerts/${id}/evidence`, { method: 'POST', body: JSON.stringify(body) }),
+  reportList: () => request('/api/reports'),
+  report: (key, params) => request(`/api/reports/${key}${queryString(params)}`),
+  auditLog: (params) => request(`/api/audit${queryString(params)}`),
 };

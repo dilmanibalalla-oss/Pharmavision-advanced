@@ -4,6 +4,7 @@ import { INVENTORY_READ, INVENTORY_WRITE } from '../access.js';
 import { listAlerts, listBatches, postMovement, stockByMedicine, StockError } from '../controllers/stock.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { recordAudit } from '../audit.js';
 import { cleanText, escapeRegex } from '../validate.js';
 
 const router = Router();
@@ -49,6 +50,9 @@ router.post('/movements', requireRole(...INVENTORY_WRITE), async (req, res) => {
   try {
     const result = await postMovement(req.body, req.user);
     const movement = presentMovement(result.movement);
+    if (!result.replay) {
+      await recordAudit(req, { action: 'stock-adjustment', entityType: 'stock-movement', entityId: movement._id, summary: `${movement.type} stock movement recorded` });
+    }
     res.status(result.replay ? 200 : 201).json({ ...movement, replay: Boolean(result.replay) });
   } catch (error) {
     sendError(res, error);

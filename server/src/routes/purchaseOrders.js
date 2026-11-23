@@ -9,6 +9,7 @@ import { allocateCode } from '../codes.js';
 import { receiveOrder, StockError } from '../controllers/stock.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { recordAudit } from '../audit.js';
 import { cleanText, parseQuantity, parseStockDate, parseUnitCost } from '../validate.js';
 
 const router = Router();
@@ -173,6 +174,9 @@ router.patch('/:id/status', requireRole(...PURCHASE_WRITE), async (req, res) => 
 router.post('/:id/receive', requireRole(...PURCHASE_WRITE), async (req, res) => {
   try {
     const result = await receiveOrder(req.params.id, req.body, req.user);
+    if (!result.replay) {
+      await recordAudit(req, { action: 'purchase-received', entityType: 'purchase-order', entityId: req.params.id, summary: 'Purchase receipt recorded' });
+    }
     res.status(result.replay ? 200 : 201).json(result);
   } catch (error) {
     sendError(res, error);

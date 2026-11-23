@@ -200,7 +200,54 @@ p { margin: 0; }
   text-transform: uppercase;
 }
 
-.lede { max-width: 46ch; line-height: 1.45; color: var(--ink-soft); }
+.disclaimer {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+  line-height: 1.45;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.summary-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.summary-card strong { display: block; font-size: 1.4rem; }
+
+.bars { display: grid; gap: 8px; margin: 8px 0 16px; }
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 160px) 1fr 48px;
+  gap: 8px;
+  align-items: center;
+}
+
+.bar-row .bar {
+  display: block;
+  height: 8px;
+  background: var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.bar-row .bar span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
 
 .toolbar { margin-bottom: 14px; }
 
@@ -564,7 +611,7 @@ label.file-btn input { display: none; }
   align-items: end;
 }
 
-.bar {
+.bar-track .bar {
   width: 100%;
   background: var(--sage);
   border-radius: 4px 4px 0 0;

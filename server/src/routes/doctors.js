@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import { recordAudit } from '../audit.js';
 import mongoose from 'mongoose';
 import User, { doctorView } from '../models/User.js';
 import { DOCTOR_READ, DOCTOR_STORED_ROLES, DOCTOR_WRITE } from '../access.js';
@@ -194,6 +195,7 @@ router.post('/', requireRole(...DOCTOR_WRITE), async (req, res) => {
       role: 'DOCTOR',
       active: true,
     });
+    await recordAudit(req, { action: 'user-created', entityType: 'user', entityId: doctor._id, summary: 'Doctor account created' });
     res.status(201).json({ doctor: doctorView(doctor) });
   } catch (error) {
     const message = error.code === 11000 ? duplicateMessage(error) : '';
