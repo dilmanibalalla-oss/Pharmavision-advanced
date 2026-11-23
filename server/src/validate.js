@@ -8,20 +8,73 @@ export function parseAge(value) {
   return age;
 }
 
-export function parseAllergies(value) {
+export function parseList(value, max = 30, length = 80) {
   const source = Array.isArray(value) ? value : String(value ?? '').split(',');
   const seen = new Set();
-  const allergies = [];
+  const items = [];
   for (const item of source) {
-    const allergy = String(item).trim().replace(/\s+/g, ' ').slice(0, 80);
-    if (!allergy) continue;
-    const key = allergy.toLowerCase();
+    const text = String(item).trim().replace(/\s+/g, ' ').slice(0, length);
+    if (!text) continue;
+    const key = text.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    allergies.push(allergy);
-    if (allergies.length === 30) break;
+    items.push(text);
+    if (items.length === max) break;
   }
-  return allergies;
+  return items;
+}
+
+export function parseAllergies(value) {
+  return parseList(value);
+}
+
+export const GENDERS = ['Female', 'Male', 'Other'];
+export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+export function ageOn(date, today = new Date()) {
+  let age = today.getFullYear() - date.getFullYear();
+  const month = today.getMonth() - date.getMonth();
+  if (month < 0 || (month === 0 && today.getDate() < date.getDate())) age -= 1;
+  if (!Number.isInteger(age) || age < 0 || age > 120) return null;
+  return age;
+}
+
+export function parseDateOfBirth(value) {
+  if (value == null || String(value).trim() === '') return { dateOfBirth: null };
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value).trim());
+  if (!match) return { error: 'Date of birth is not a valid date' };
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return { error: 'Date of birth is not a valid date' };
+  }
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 12));
+  if (date > todayUtc) return { error: 'Date of birth cannot be in the future' };
+  const age = ageOn(date, todayUtc);
+  if (age == null) return { error: 'Date of birth must be within the last 120 years' };
+  return { dateOfBirth: date, age };
+}
+
+export function parseChoice(value, allowed, label) {
+  const choice = cleanText(value, 20);
+  if (!choice) return { value: '' };
+  if (!allowed.includes(choice)) return { error: `${label} is not one of the listed values` };
+  return { value: choice };
+}
+
+export function parseEmergencyContact(value) {
+  if (value == null) return { contact: { name: '', phone: '', relationship: '' } };
+  const name = cleanText(value.name, 120);
+  const relationship = cleanText(value.relationship, 80);
+  const phone = parsePhone(value.phone);
+  if (phone.error) return { error: `Emergency contact: ${phone.error}` };
+  if ((name && !phone.phone) || (!name && phone.phone)) {
+    return { error: 'Emergency contact needs both a name and a phone number' };
+  }
+  return { contact: { name, phone: phone.phone, relationship } };
 }
 
 export function escapeRegex(value) {

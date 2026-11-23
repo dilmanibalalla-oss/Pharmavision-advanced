@@ -206,7 +206,7 @@ p { margin: 0; }
 
 .search { flex: 1; }
 
-.search input, .stack input, .stack textarea, .stack select, .medicine-form input, .medicine-form select, .filters input, .filters select, .doctor-form input, .doctor-form textarea, .doctor-form select, .slot-row input {
+.search input, .stack input, .stack textarea, .stack select, .medicine-form input, .medicine-form select, .filters input, .filters select, .doctor-form input, .doctor-form textarea, .doctor-form select, .record-form input, .record-form textarea, .record-form select, .slot-row input {
   width: 100%;
   background: var(--paper-2);
   border: 1px solid var(--line);
@@ -612,14 +612,14 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
 
 .filters .search { min-width: 240px; }
 
-.doctor-form {
+.doctor-form, .record-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 16px;
 }
 
-.doctor-form .wide { grid-column: 1 / -1; }
+.doctor-form .wide, .record-form .wide { grid-column: 1 / -1; }
 
 .fact-grid {
   display: grid;
@@ -674,6 +674,6 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
   .stage-head { flex-direction: column; align-items: flex-start; }
   .medicine-form { grid-template-columns: 1fr; }
   .dash-split { grid-template-columns: 1fr; }
-  .doctor-form, .slot-row { grid-template-columns: 1fr; }
+  .doctor-form, .record-form, .slot-row { grid-template-columns: 1fr; }
   h1 { font-size: 2rem; }
 }

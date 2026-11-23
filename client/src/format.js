@@ -10,6 +10,16 @@ export const MEDICINE_FORMS = [
   'Sachet',
 ];
 
+export function formatDate(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 export function formatWhen(value) {
   return new Date(value).toLocaleString(undefined, {
     day: 'numeric',

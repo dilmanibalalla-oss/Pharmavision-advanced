@@ -2,10 +2,25 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Patient from '../models/Patient.js';
 import Medicine from '../models/Medicine.js';
-import { PATIENT_READ, PATIENT_WRITE } from '../access.js';
+import { allocatePatientCode } from '../assignPatientCodes.js';
+import { presentPatient } from '../patientsView.js';
+import { PATIENT_CLINICAL, PATIENT_READ, PATIENT_WRITE, canonicalRole } from '../access.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
-import { cleanText, escapeRegex, parseAge, parseAllergies } from '../validate.js';
+import {
+  BLOOD_GROUPS,
+  GENDERS,
+  cleanText,
+  escapeRegex,
+  parseAge,
+  parseAllergies,
+  parseChoice,
+  parseDateOfBirth,
+  parseEmail,
+  parseEmergencyContact,
+  parseList,
+  parsePhone,
+} from '../validate.js';
 
 const router = Router();
 
@@ -19,80 +34,208 @@ function missingPatient(res) {
   return res.status(404).json({ message: 'Patient not found' });
 }
 
-router.get('/', async (req, res) => {
-  const q = cleanText(req.query.q, 80);
-  let filter = {};
-  if (q) {
-    const regex = new RegExp(escapeRegex(q), 'i');
-    const clauses = [
-      { name: regex },
-      { address: regex },
-      { allergies: regex },
-      { 'visits.treatments.medicineName': regex },
-      { 'visits.treatments.strength': regex },
-      { 'visits.treatments.notes': regex },
-      { 'visits.treatments.form': regex },
-    ];
-    if (/^\d+$/.test(q)) {
-      const amount = Number(q);
-      clauses.push({ age: amount }, { visitCount: amount });
-    }
-    filter = { $or: clauses };
+function seesClinical(user) {
+  return PATIENT_CLINICAL.includes(canonicalRole(user?.role));
+}
+
+function pageNumber(value) {
+  const page = Number(value);
+  if (!Number.isInteger(page) || page < 1) return 1;
+  return page;
+}
+
+function pageLimit(value) {
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 1) return 20;
+  return Math.min(limit, 50);
+}
+
+function readIdentity(body, creating) {
+  const fields = {};
+  const name = cleanText(body.name, 120);
+  const address = cleanText(body.address, 300);
+  if (!name) return { error: 'Name is required' };
+  if (!address) return { error: 'Address is required' };
+  fields.name = name;
+  fields.address = address;
+
+  const born = parseDateOfBirth(body.dateOfBirth);
+  if (born.error) return born;
+  if (born.dateOfBirth) {
+    fields.dateOfBirth = born.dateOfBirth;
+    fields.age = born.age;
+  } else if (creating || Object.prototype.hasOwnProperty.call(body, 'age')) {
+    const age = parseAge(body.age);
+    if (age == null) return { error: 'Age must be a whole number from 0 to 120' };
+    fields.age = age;
   }
 
-  const patients = await Patient.find(filter)
-    .collation({ locale: 'en', strength: 2 })
-    .sort({ name: 1 })
-    .limit(300);
-  res.json(patients);
+  if (creating || Object.prototype.hasOwnProperty.call(body, 'phone')) {
+    const phone = parsePhone(body.phone);
+    if (phone.error) return phone;
+    fields.phone = phone.phone;
+  }
+  if (creating || Object.prototype.hasOwnProperty.call(body, 'email')) {
+    const raw = String(body.email ?? '').trim();
+    if (!raw) fields.email = '';
+    else {
+      const email = parseEmail(body.email);
+      if (!email) return { error: 'A valid email is required' };
+      fields.email = email;
+    }
+  }
+  if (creating || Object.prototype.hasOwnProperty.call(body, 'gender')) {
+    const gender = parseChoice(body.gender, GENDERS, 'Gender');
+    if (gender.error) return gender;
+    fields.gender = gender.value;
+  }
+  if (creating || Object.prototype.hasOwnProperty.call(body, 'bloodGroup')) {
+    const bloodGroup = parseChoice(body.bloodGroup, BLOOD_GROUPS, 'Blood group');
+    if (bloodGroup.error) return bloodGroup;
+    fields.bloodGroup = bloodGroup.value;
+  }
+  if (creating || Object.prototype.hasOwnProperty.call(body, 'emergencyContact')) {
+    const emergency = parseEmergencyContact(body.emergencyContact);
+    if (emergency.error) return emergency;
+    fields.emergencyContact = emergency.contact;
+  }
+  if (creating || Object.prototype.hasOwnProperty.call(body, 'allergies')) {
+    fields.allergies = parseAllergies(body.allergies);
+  }
+  if (creating || Object.prototype.hasOwnProperty.call(body, 'conditions')) {
+    fields.conditions = parseList(body.conditions);
+  }
+  return { fields };
+}
+
+async function loadPatient(id) {
+  if (!mongoose.isValidObjectId(id)) return null;
+  return Patient.findById(id);
+}
+
+router.get('/', async (req, res) => {
+  const page = pageNumber(req.query.page);
+  const limit = pageLimit(req.query.limit);
+  const q = cleanText(req.query.q, 80);
+  const gender = cleanText(req.query.gender, 20);
+  const active = cleanText(req.query.active, 5);
+  const clinical = seesClinical(req.user);
+  const filter = {};
+
+  if (q) {
+    const regex = new RegExp(escapeRegex(q), 'i');
+    filter.$or = [{ name: regex }, { patientCode: regex }, { phone: regex }];
+  }
+  if (GENDERS.includes(gender)) filter.gender = gender;
+  if (active === 'true') filter.active = { $ne: false };
+  if (active === 'false') filter.active = false;
+  if (clinical && Object.prototype.hasOwnProperty.call(req.query, 'bloodGroup')) {
+    const bloodGroup = cleanText(req.query.bloodGroup, 8);
+    if (BLOOD_GROUPS.includes(bloodGroup)) filter.bloodGroup = bloodGroup;
+  }
+
+  const [total, patients] = await Promise.all([
+    Patient.countDocuments(filter),
+    Patient.find(filter)
+      .select('-visits')
+      .collation({ locale: 'en', strength: 2 })
+      .sort({ name: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+  ]);
+
+  res.json({
+    patients: patients.map((patient) => presentPatient(patient, clinical)),
+    page,
+    limit,
+    total,
+    pages: total === 0 ? 0 : Math.ceil(total / limit),
+  });
 });
 
 router.post('/', async (req, res) => {
-  const name = cleanText(req.body.name, 120);
-  const address = cleanText(req.body.address, 300);
-  const age = parseAge(req.body.age);
-  if (!name) return res.status(400).json({ message: 'Name is required' });
-  if (age == null) {
-    return res.status(400).json({ message: 'Age must be a whole number from 0 to 120' });
-  }
-  if (!address) return res.status(400).json({ message: 'Address is required' });
+  const parsed = readIdentity(req.body, true);
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
 
-  const patient = await Patient.create({
-    name,
-    age,
-    address,
-    allergies: parseAllergies(req.body.allergies),
-    visitCount: 0,
-    visits: [],
-  });
-  res.status(201).json(patient);
+  let patient;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      patient = await Patient.create({
+        ...parsed.fields,
+        patientCode: await allocatePatientCode(),
+        allergies: parsed.fields.allergies || [],
+        conditions: parsed.fields.conditions || [],
+        registeredAt: new Date(),
+        active: true,
+        visitCount: 0,
+        visits: [],
+      });
+      break;
+    } catch (error) {
+      if (error.code !== 11000 || attempt === 2) throw error;
+    }
+  }
+  res.status(201).json(presentPatient(patient, true));
+});
+
+router.get('/:id/consultations', async (req, res) => {
+  if (!seesClinical(req.user)) {
+    return res.status(403).json({ message: 'You do not have access to that medical record' });
+  }
+  const patient = await loadPatient(req.params.id);
+  if (!patient) return missingPatient(res);
+  res.json({ consultations: presentPatient(patient, true).consultations });
+});
+
+router.get('/:id/treatments', async (req, res) => {
+  if (!seesClinical(req.user)) {
+    return res.status(403).json({ message: 'You do not have access to that medical record' });
+  }
+  const patient = await loadPatient(req.params.id);
+  if (!patient) return missingPatient(res);
+  res.json({ treatments: presentPatient(patient, true).treatments });
+});
+
+router.get('/:id/prescriptions', async (req, res) => {
+  if (!seesClinical(req.user)) {
+    return res.status(403).json({ message: 'You do not have access to that medical record' });
+  }
+  const patient = await loadPatient(req.params.id);
+  if (!patient) return missingPatient(res);
+  res.json({ prescriptions: presentPatient(patient, true).prescriptions });
 });
 
 router.get('/:id', async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) return missingPatient(res);
-  const patient = await Patient.findById(req.params.id);
+  const patient = await loadPatient(req.params.id);
   if (!patient) return missingPatient(res);
-  res.json(patient);
+  res.json(presentPatient(patient, seesClinical(req.user)));
 });
 
 router.put('/:id', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return missingPatient(res);
-  const name = cleanText(req.body.name, 120);
-  const address = cleanText(req.body.address, 300);
-  const age = parseAge(req.body.age);
-  if (!name) return res.status(400).json({ message: 'Name is required' });
-  if (age == null) {
-    return res.status(400).json({ message: 'Age must be a whole number from 0 to 120' });
-  }
-  if (!address) return res.status(400).json({ message: 'Address is required' });
-
+  const parsed = readIdentity(req.body, false);
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
   const patient = await Patient.findByIdAndUpdate(
     req.params.id,
-    { name, age, address, allergies: parseAllergies(req.body.allergies) },
+    { $set: parsed.fields },
     { new: true, runValidators: true }
   );
   if (!patient) return missingPatient(res);
-  res.json(patient);
+  res.json(presentPatient(patient, true));
+});
+
+router.patch('/:id/active', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return missingPatient(res);
+  if (typeof req.body.active !== 'boolean') {
+    return res.status(400).json({ message: 'Say whether the patient record is active' });
+  }
+  const patient = await Patient.findByIdAndUpdate(
+    req.params.id,
+    { active: req.body.active },
+    { new: true, runValidators: true }
+  );
+  if (!patient) return missingPatient(res);
+  res.json(presentPatient(patient, true));
 });
 
 router.delete('/:id', async (req, res) => {
@@ -104,15 +247,19 @@ router.delete('/:id', async (req, res) => {
 
 router.post('/:id/visit', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return missingPatient(res);
-  const patient = await Patient.findByIdAndUpdate(
-    req.params.id,
+  const patient = await Patient.findOneAndUpdate(
+    { _id: req.params.id, active: { $ne: false } },
     {
       $inc: { visitCount: 1 },
       $push: { visits: { visitedAt: new Date(), treatments: [] } },
     },
     { new: true }
   );
-  if (!patient) return missingPatient(res);
+  if (!patient) {
+    const exists = await Patient.exists({ _id: req.params.id });
+    if (!exists) return missingPatient(res);
+    return res.status(400).json({ message: 'This patient record is inactive' });
+  }
   res.json(patient);
 });
 
@@ -141,6 +288,9 @@ router.post('/:id/treatments', async (req, res) => {
 
   const patient = await Patient.findById(req.params.id);
   if (!patient) return missingPatient(res);
+  if (patient.active === false) {
+    return res.status(400).json({ message: 'This patient record is inactive' });
+  }
   if (patient.visits.length === 0) {
     patient.visits.push({ visitedAt: new Date(), treatments: [] });
     patient.visitCount = patient.visits.length;

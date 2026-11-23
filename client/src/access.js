@@ -2,6 +2,7 @@ const ACCESS = {
   patients: {
     read: ['ADMIN', 'DOCTOR', 'PHARMACIST', 'SECURITY_OFFICER', 'DISPENSARY_STAFF'],
     write: ['ADMIN', 'DOCTOR'],
+    clinical: ['ADMIN', 'DOCTOR', 'PHARMACIST', 'DISPENSARY_STAFF'],
   },
   medicines: {
     read: ['ADMIN', 'DOCTOR', 'PHARMACIST', 'INVENTORY_MANAGER', 'DISPENSARY_STAFF'],
