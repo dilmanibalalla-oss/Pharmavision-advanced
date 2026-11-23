@@ -103,9 +103,10 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
         <section>
           <h3>This visit</h3>
           <p className="hint">
-            {canWrite
-              ? `Opening this chart recorded visit ${patient.visitCount}${latest ? ` · ${formatWhen(latest.visitedAt)}` : ''}. Choose the medicine from the catalog.`
-              : `Visit count is ${patient.visitCount}${latest ? ` · last visit ${formatWhen(latest.visitedAt)}` : ''}.`}
+            {latest
+              ? `Latest consultation ${formatWhen(latest.visitedAt)}. Visit count is ${patient.visitCount}.`
+              : 'No consultation has been recorded yet.'}
+            {canWrite ? ' Choose the medicine from the catalog.' : ''}
           </p>
           {canWrite ? (
           <form onSubmit={addTreatment} className="stack">

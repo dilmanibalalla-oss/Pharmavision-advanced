@@ -55,8 +55,17 @@ export const api = {
   setUserActive: (id, active) => request(`/api/users/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) }),
   stats: () => request('/api/stats'),
   dashboard: () => request('/api/dashboard'),
-  patients: (q = '') => request(`/api/patients${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  patients: (params = {}) => {
+    const search = new URLSearchParams();
+    const source = typeof params === 'string' ? { q: params } : params;
+    Object.entries(source).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/patients${query ? `?${query}` : ''}`);
+  },
   patient: (id) => request(`/api/patients/${id}`),
+  setPatientActive: (id, active) => request(`/api/patients/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) }),
   createPatient: (body) => request('/api/patients', { method: 'POST', body: JSON.stringify(body) }),
   updatePatient: (id, body) => request(`/api/patients/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deletePatient: (id) => request(`/api/patients/${id}`, { method: 'DELETE' }),
