@@ -10,6 +10,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { DoctorDesk } from './components/DoctorDesk';
 import { PatientDesk } from './components/PatientDesk';
 import { ConsultationDesk } from './components/ConsultationDesk';
+import { TreatmentDesk } from './components/TreatmentDesk';
 
 function sectionFromPath(pathname) {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
@@ -18,6 +19,7 @@ function sectionFromPath(pathname) {
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname.startsWith('/users')) return 'users';
   if (pathname.startsWith('/consultations')) return 'consultations';
+  if (pathname.startsWith('/treatment-plans')) return 'treatment-plans';
   return 'patients';
 }
 
@@ -135,6 +137,7 @@ export default function App() {
       doctors: '/doctors',
       patients: '/patients',
       consultations: '/consultations',
+      'treatment-plans': '/treatment-plans',
       medicines: '/medicines',
       users: '/users',
       profile: '/profile',
@@ -149,6 +152,7 @@ export default function App() {
 
   const readPatients = can(user?.role, 'patients', 'read');
   const readConsultations = can(user?.role, 'consultations', 'read');
+  const readTreatments = can(user?.role, 'treatments', 'read');
   const writePatients = can(user?.role, 'patients', 'write');
   const readMedicines = can(user?.role, 'medicines', 'read');
   const writeMedicines = can(user?.role, 'medicines', 'write');
@@ -206,6 +210,11 @@ export default function App() {
             {readConsultations ? (
               <button type="button" className={section === 'consultations' ? 'is-on' : undefined} onClick={() => switchSection('consultations')}>
                 Consultations
+              </button>
+            ) : null}
+            {readTreatments ? (
+              <button type="button" className={section === 'treatment-plans' ? 'is-on' : undefined} onClick={() => switchSection('treatment-plans')}>
+                Treatment plans
               </button>
             ) : null}
             {readPatients ? (
@@ -266,6 +275,8 @@ export default function App() {
             <DoctorDesk actor={user} onToast={notify} />
           ) : section === 'consultations' ? (
             <ConsultationDesk actor={user} onToast={notify} />
+          ) : section === 'treatment-plans' ? (
+            <TreatmentDesk actor={user} onToast={notify} />
           ) : section === 'patients' ? (
             <PatientDesk actor={user} onToast={notify} onStats={loadStats} />
           ) : section === 'medicines' ? (

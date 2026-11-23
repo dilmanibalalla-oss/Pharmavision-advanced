@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { can } from '../access';
 import { api } from '../api';
-import { formatWhen } from '../format';
+import { formatDate, formatWhen } from '../format';
 
 const AUDIT_LABELS = {
   patient: 'patient',
@@ -512,6 +512,53 @@ function ConsultationForm({ actor, consultationId, presetPatient, onToast }) {
   );
 }
 
+function LinkedPlans({ consultationId, patientId, canWrite }) {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState([]);
+
+  useEffect(() => {
+    let ignore = false;
+    api.treatmentPlans({ consultation: consultationId, limit: 20 })
+      .then((result) => {
+        if (!ignore) setRows(result.treatmentPlans || []);
+      })
+      .catch(() => {
+        if (!ignore) setRows([]);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [consultationId]);
+
+  return (
+    <>
+      <div className="stage-head">
+        <h2 className="section-label">Treatment plans</h2>
+        {canWrite ? (
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => navigate(`/treatment-plans/new?patient=${patientId}&consultation=${consultationId}`)}
+          >
+            New treatment plan
+          </button>
+        ) : null}
+      </div>
+      {rows.length === 0 ? <p className="empty">No treatment plans are linked to this consultation.</p> : (
+        <ul className="feed">
+          {rows.map((record) => (
+            <li key={record._id}>
+              <button type="button" className="text-btn" onClick={() => navigate(`/treatment-plans/${record._id}`)}>
+                {formatDate(record.startDate)} · {record.doctorName} · {record.diagnosis || record.description}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
 function ConsultationView({ actor, consultationId }) {
   const navigate = useNavigate();
   const [record, setRecord] = useState(null);
@@ -585,6 +632,7 @@ function ConsultationView({ actor, consultationId }) {
           {record.investigations.length === 0 ? <p className="empty">No investigations are recorded.</p> : (
             <ul className="feed">{record.investigations.map((item) => <li key={item}>{item}</li>)}</ul>
           )}
+          <LinkedPlans consultationId={consultationId} patientId={record.patient} canWrite={can(actor.role, 'treatments', 'write')} />
           <h2 className="section-label">Audit history</h2>
           <ul className="feed">
             {record.audit.map((entry, index) => (

@@ -80,6 +80,7 @@ export function PatientDesk({ actor, onToast, onStats }) {
         clinical={clinical}
         canWrite={canWrite}
         showNotes={can(actor.role, 'consultations', 'read')}
+        showPlans={can(actor.role, 'treatments', 'read')}
         onToast={onToast}
         onStats={onStats}
         onChart={setChart}
@@ -507,7 +508,7 @@ function pendingList(items, draft) {
   return [...items, next].slice(0, 30);
 }
 
-function PatientProfile({ patientId, clinical, canWrite, showNotes, onToast, onStats, onChart, revision }) {
+function PatientProfile({ patientId, clinical, canWrite, showNotes, showPlans, onToast, onStats, onChart, revision }) {
   const navigate = useNavigate();
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -629,6 +630,7 @@ function PatientProfile({ patientId, clinical, canWrite, showNotes, onToast, onS
               <h2 className="section-label">Existing medical conditions</h2>
               <ChipList items={patient.conditions} empty="No medical conditions are recorded." />
               {showNotes ? <ClinicalNotes patientId={patientId} canWrite={canWrite && patient.active} revision={revision} /> : null}
+              {showPlans ? <PlanNotes patientId={patientId} canWrite={canWrite && patient.active} revision={revision} /> : null}
               <h2 className="section-label">Visit record</h2>
               <HistoryList
                 rows={consultations}
@@ -693,6 +695,51 @@ function ClinicalNotes({ patientId, canWrite, revision }) {
             <li key={record._id}>
               <button type="button" className="text-btn" onClick={() => navigate(`/consultations/${record._id}`)}>
                 {formatWhen(record.consultedAt)} · {record.doctorName} · {record.chiefComplaint}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+function PlanNotes({ patientId, canWrite, revision }) {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let ignore = false;
+    api.treatmentPlans({ patient: patientId, limit: 20 })
+      .then((result) => {
+        if (!ignore) setRows(result.treatmentPlans || []);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.message);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [patientId, revision]);
+
+  return (
+    <>
+      <div className="stage-head">
+        <h2 className="section-label">Treatment plans</h2>
+        {canWrite ? (
+          <button type="button" className="ghost" onClick={() => navigate(`/treatment-plans/new?patient=${patientId}`)}>
+            New treatment plan
+          </button>
+        ) : null}
+      </div>
+      {error ? <p className="banner" role="alert">{error}</p> : null}
+      {rows.length === 0 ? <p className="empty">No treatment plans are recorded.</p> : (
+        <ul className="feed">
+          {rows.map((record) => (
+            <li key={record._id}>
+              <button type="button" className="text-btn" onClick={() => navigate(`/treatment-plans/${record._id}`)}>
+                {formatDate(record.startDate)} · {record.doctorName} · {record.diagnosis || record.description} · {({ PLANNED: 'Planned', ACTIVE: 'Active', COMPLETED: 'Completed', CANCELLED: 'Cancelled', ON_HOLD: 'On hold' })[record.status] || record.status}
               </button>
             </li>
           ))}
