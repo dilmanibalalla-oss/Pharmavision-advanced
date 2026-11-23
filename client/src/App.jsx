@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { can, homePath, roleLabel, sectionAllowed } from './access';
 import { api } from './api';
 import { treatmentLines } from './format';
+import { LoginScreen } from './components/LoginScreen';
 import { MedicineCatalog } from './components/MedicineCatalog';
 import { PatientChart } from './components/PatientChart';
 import { PatientForm } from './components/PatientForm';
 import { PatientTable } from './components/PatientTable';
+import { ProfileScreen } from './components/ProfileScreen';
+import { UserAdmin } from './components/UserAdmin';
 
 function sortValue(patient, key) {
   if (key === 'allergies') return patient.allergies.join(', ');
@@ -12,8 +17,17 @@ function sortValue(patient, key) {
   return patient[key] ?? '';
 }
 
+function sectionFromPath(pathname) {
+  if (pathname.startsWith('/medicines')) return 'medicines';
+  if (pathname.startsWith('/profile')) return 'profile';
+  if (pathname.startsWith('/users')) return 'users';
+  return 'patients';
+}
+
 export default function App() {
-  const [section, setSection] = useState('patients');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const section = sectionFromPath(location.pathname);
   const [patients, setPatients] = useState([]);
   const [medicines, setMedicines] = useState([]);
   const [stats, setStats] = useState({ patients: 0, visits: 0, medicines: 0 });
@@ -27,6 +41,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [busyId, setBusyId] = useState('');
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
+  const [session, setSession] = useState('checking');
+  const [user, setUser] = useState(null);
   const layer = useRef({ form: null, pending: null });
   const queryRef = useRef('');
   const opening = useRef(false);
@@ -54,6 +70,44 @@ export default function App() {
 
   useEffect(() => {
     let ignore = false;
+    (async () => {
+      try {
+        const data = await api.me();
+        if (ignore) return;
+        setUser(data.user);
+        setSession('in');
+      } catch {
+        try {
+          const data = await api.refresh();
+          if (ignore) return;
+          setUser(data.user);
+          setSession('in');
+        } catch {
+          if (ignore) return;
+          setUser(null);
+          setSession('out');
+        }
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (session === 'checking') return undefined;
+    if (session === 'out') {
+      if (location.pathname !== '/login') navigate('/login', { replace: true });
+      return undefined;
+    }
+    if (!user || sectionAllowed(user.role, location.pathname)) return undefined;
+    navigate(homePath(user.role), { replace: true });
+    return undefined;
+  }, [session, user, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (session !== 'in' || !can(user?.role, 'patients', 'read')) return undefined;
+    let ignore = false;
     setLoading(true);
     api.patients(debouncedQuery)
       .then((rows) => {
@@ -70,15 +124,14 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, session, user]);
 
   useEffect(() => {
+    if (session !== 'in') return undefined;
     let ignore = false;
-    Promise.all([api.stats(), api.medicines()])
-      .then(([nextStats, rows]) => {
-        if (ignore) return;
-        setStats(nextStats);
-        setMedicines(rows);
+    api.stats()
+      .then((nextStats) => {
+        if (!ignore) setStats(nextStats);
       })
       .catch((err) => {
         if (!ignore) setError(err.message);
@@ -86,7 +139,22 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [session]);
+
+  useEffect(() => {
+    if (session !== 'in' || !can(user?.role, 'medicines', 'read')) return undefined;
+    let ignore = false;
+    api.medicines()
+      .then((rows) => {
+        if (!ignore) setMedicines(rows);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.message);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [session, user]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -136,8 +204,23 @@ export default function App() {
     });
   }
 
+  async function signOut() {
+    try {
+      await api.logout();
+    } catch {
+      // The screen still returns to login if the server is unreachable.
+    }
+    setUser(null);
+    setSession('out');
+    setSelected(null);
+    setForm(null);
+    setPendingDelete(null);
+    navigate('/login', { replace: true });
+  }
+
   function switchSection(next) {
-    setSection(next);
+    const paths = { patients: '/patients', medicines: '/medicines', users: '/users', profile: '/profile' };
+    navigate(paths[next] || '/profile');
     setSelected(null);
     setForm(null);
   }
@@ -147,15 +230,21 @@ export default function App() {
     opening.current = true;
     setBusyId(patient._id);
     try {
+      const writePatients = can(user?.role, 'patients', 'write');
+      const catalogPromise = can(user?.role, 'medicines', 'read')
+        ? api.medicines().catch(() => null)
+        : Promise.resolve(null);
       const [updated, catalog] = await Promise.all([
-        api.recordVisit(patient._id),
-        api.medicines().catch(() => null),
+        writePatients ? api.recordVisit(patient._id) : api.patient(patient._id),
+        catalogPromise,
       ]);
       if (catalog) setMedicines(catalog);
       syncPatient(updated);
       setSelected(updated);
-      await loadStats();
-      notify(`Visit recorded for ${updated.name}. Visits are now ${updated.visitCount}.`);
+      if (writePatients) {
+        await loadStats();
+        notify(`Visit recorded for ${updated.name}. Visits are now ${updated.visitCount}.`);
+      }
     } catch (err) {
       notify(err.message, 'danger');
     } finally {
@@ -200,6 +289,30 @@ export default function App() {
     await loadStats();
   }
 
+  const readPatients = can(user?.role, 'patients', 'read');
+  const writePatients = can(user?.role, 'patients', 'write');
+  const readMedicines = can(user?.role, 'medicines', 'read');
+  const writeMedicines = can(user?.role, 'medicines', 'write');
+  const readUsers = can(user?.role, 'users', 'read');
+  const onAllowedPage = Boolean(user && sectionAllowed(user.role, location.pathname));
+
+  if (session !== 'in') {
+    return (
+      <div className="shell login-shell">
+        {session === 'checking' ? (
+          <p className="empty">Opening the daybook…</p>
+        ) : (
+          <LoginScreen
+            onSuccess={(nextUser) => {
+              setUser(nextUser);
+              setSession('in');
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',
@@ -219,11 +332,23 @@ export default function App() {
           </div>
           <p className="today">{today}</p>
           <nav className="nav" aria-label="Practice">
-            <button type="button" className={section === 'patients' ? 'is-on' : undefined} onClick={() => switchSection('patients')}>
-              Patients
-            </button>
-            <button type="button" className={section === 'medicines' ? 'is-on' : undefined} onClick={() => switchSection('medicines')}>
-              Medicines
+            {readPatients ? (
+              <button type="button" className={section === 'patients' ? 'is-on' : undefined} onClick={() => switchSection('patients')}>
+                Patients
+              </button>
+            ) : null}
+            {readMedicines ? (
+              <button type="button" className={section === 'medicines' ? 'is-on' : undefined} onClick={() => switchSection('medicines')}>
+                Medicines
+              </button>
+            ) : null}
+            {readUsers ? (
+              <button type="button" className={section === 'users' ? 'is-on' : undefined} onClick={() => switchSection('users')}>
+                Accounts
+              </button>
+            ) : null}
+            <button type="button" className={section === 'profile' ? 'is-on' : undefined} onClick={() => switchSection('profile')}>
+              Profile
             </button>
           </nav>
           <dl className="rail-stats">
@@ -240,7 +365,16 @@ export default function App() {
               <dd>{stats.medicines}</dd>
             </div>
           </dl>
-          <p className="rail-note">Selecting a patient records a visit and adds one to their visit count.</p>
+          {writePatients ? (
+            <p className="rail-note">Selecting a patient records a visit and adds one to their visit count.</p>
+          ) : null}
+          {user ? (
+            <div className="who">
+              <p className="who-name">{user.name}</p>
+              <p className="who-role">{roleLabel(user.role)}</p>
+            </div>
+          ) : null}
+          <button type="button" className="rail-signout" onClick={signOut}>Sign out</button>
         </aside>
 
         <main className="stage">
@@ -248,16 +382,20 @@ export default function App() {
             <p className="banner" role="alert">{error}</p>
           ) : null}
 
-          {section === 'patients' ? (
+          {!onAllowedPage ? (
+            <p className="empty">Opening the daybook…</p>
+          ) : section === 'patients' ? (
             <section>
               <header className="stage-head">
                 <div>
                   <p className="kicker">Registry</p>
                   <h1>Patients</h1>
                 </div>
-                <button type="button" className="solid" onClick={() => setForm({ mode: 'create' })}>
-                  Add patient
-                </button>
+                {writePatients ? (
+                  <button type="button" className="solid" onClick={() => setForm({ mode: 'create' })}>
+                    Add patient
+                  </button>
+                ) : null}
               </header>
               <div className="toolbar">
                 <label className="search">
@@ -282,10 +420,15 @@ export default function App() {
                 onDelete={setPendingDelete}
                 busyId={busyId}
                 selectedId={selected?._id}
+                canWrite={writePatients}
               />
             </section>
+          ) : section === 'medicines' ? (
+            <MedicineCatalog medicines={medicines} onRefresh={refreshCatalog} onToast={notify} canWrite={writeMedicines} />
+          ) : section === 'users' ? (
+            <UserAdmin actor={user} onToast={notify} />
           ) : (
-            <MedicineCatalog medicines={medicines} onRefresh={refreshCatalog} onToast={notify} />
+            <ProfileScreen user={user} onUser={setUser} onToast={notify} />
           )}
         </main>
       </div>
@@ -301,6 +444,7 @@ export default function App() {
             loadStats().catch(() => {});
           }}
           onToast={notify}
+          canWrite={writePatients}
         />
       ) : null}
 

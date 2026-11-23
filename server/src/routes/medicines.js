@@ -1,9 +1,18 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import Medicine from '../models/Medicine.js';
+import { MEDICINE_READ, MEDICINE_WRITE } from '../access.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/requireRole.js';
 import { MEDICINE_FORMS, cleanText, escapeRegex } from '../validate.js';
 
 const router = Router();
+
+router.use(requireAuth);
+router.use((req, res, next) => {
+  const roles = req.method === 'GET' || req.method === 'HEAD' ? MEDICINE_READ : MEDICINE_WRITE;
+  return requireRole(...roles)(req, res, next);
+});
 const forms = new Set(MEDICINE_FORMS);
 
 function readMedicine(body) {

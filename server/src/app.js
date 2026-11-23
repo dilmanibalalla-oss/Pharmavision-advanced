@@ -1,15 +1,18 @@
 import express from 'express';
 import cors from 'cors';
+import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
 import patientsRouter from './routes/patients.js';
 import medicinesRouter from './routes/medicines.js';
 import Patient from './models/Patient.js';
 import Medicine from './models/Medicine.js';
 import { connectDb } from './db.js';
+import { requireAuth } from './middleware/auth.js';
 
 const app = express();
 const parseJson = express.json({ limit: '1mb' });
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use((req, res, next) => {
   if (typeof req.body === 'string') {
     try {
@@ -36,7 +39,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, database: 'connected' });
 });
 
-app.get('/api/stats', async (_req, res) => {
+app.get('/api/stats', requireAuth, async (_req, res) => {
   const [patients, medicines, visits] = await Promise.all([
     Patient.countDocuments(),
     Medicine.countDocuments(),
@@ -49,6 +52,8 @@ app.get('/api/stats', async (_req, res) => {
   });
 });
 
+app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/patients', patientsRouter);
 app.use('/api/medicines', medicinesRouter);
 
@@ -56,6 +61,9 @@ app.use((error, _req, res, _next) => {
   console.error(error);
   if (error.code === 'NO_URI') {
     return res.status(500).json({ message: 'The clinic database is not configured' });
+  }
+  if (error.code === 'NO_SECRET') {
+    return res.status(500).json({ message: 'Sign-in is not configured' });
   }
   if (error.name === 'ValidationError') {
     return res.status(400).json({ message: 'Check those details and try again' });

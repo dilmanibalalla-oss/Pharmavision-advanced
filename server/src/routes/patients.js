@@ -2,9 +2,18 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Patient from '../models/Patient.js';
 import Medicine from '../models/Medicine.js';
+import { PATIENT_READ, PATIENT_WRITE } from '../access.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/requireRole.js';
 import { cleanText, escapeRegex, parseAge, parseAllergies } from '../validate.js';
 
 const router = Router();
+
+router.use(requireAuth);
+router.use((req, res, next) => {
+  const roles = req.method === 'GET' || req.method === 'HEAD' ? PATIENT_READ : PATIENT_WRITE;
+  return requireRole(...roles)(req, res, next);
+});
 
 function missingPatient(res) {
   return res.status(404).json({ message: 'Patient not found' });

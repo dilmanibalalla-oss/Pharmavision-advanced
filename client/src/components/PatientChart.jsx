@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatWhen, medicineLabel, treatmentLabel } from '../format';
 
-export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, onToast }) {
+export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, onToast, canWrite = true }) {
   const [medicineId, setMedicineId] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -103,9 +103,11 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
         <section>
           <h3>This visit</h3>
           <p className="hint">
-            Opening this chart recorded visit {patient.visitCount}
-            {latest ? ` · ${formatWhen(latest.visitedAt)}` : ''}. Choose the medicine from the catalog.
+            {canWrite
+              ? `Opening this chart recorded visit ${patient.visitCount}${latest ? ` · ${formatWhen(latest.visitedAt)}` : ''}. Choose the medicine from the catalog.`
+              : `Visit count is ${patient.visitCount}${latest ? ` · last visit ${formatWhen(latest.visitedAt)}` : ''}.`}
           </p>
+          {canWrite ? (
           <form onSubmit={addTreatment} className="stack">
             <label>
               Medicine
@@ -132,6 +134,7 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
               {saving ? 'Saving…' : 'Add treatment'}
             </button>
           </form>
+          ) : null}
           {latest?.treatments?.length ? (
             <ul className="treatment-list">
               {latest.treatments.map((treatment) => (
@@ -140,16 +143,18 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
                     <strong>{treatmentLabel(treatment)}</strong>
                     {treatment.notes ? <p>{treatment.notes}</p> : null}
                   </div>
-                  <button type="button" className="text-btn danger-text" onClick={() => removeTreatment(treatment._id)}>
-                    Remove
-                  </button>
+                  {canWrite ? (
+                    <button type="button" className="text-btn danger-text" onClick={() => removeTreatment(treatment._id)}>
+                      Remove
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>
           ) : (
             <p className="muted">No medicine recorded for this visit yet.</p>
           )}
-          {canUndo ? (
+          {canWrite && canUndo ? (
             <button type="button" className="text-btn undo" onClick={undoVisit} disabled={undoing}>
               {undoing ? 'Undoing…' : 'Undo this visit'}
             </button>
@@ -175,9 +180,11 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
                             <strong>{treatmentLabel(treatment)}</strong>
                             {treatment.notes ? <p>{treatment.notes}</p> : null}
                           </div>
-                          <button type="button" className="text-btn danger-text" onClick={() => removeTreatment(treatment._id)}>
-                            Remove
-                          </button>
+                          {canWrite ? (
+                            <button type="button" className="text-btn danger-text" onClick={() => removeTreatment(treatment._id)}>
+                              Remove
+                            </button>
+                          ) : null}
                         </li>
                       ))}
                     </ul>
@@ -188,9 +195,11 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
           )}
         </section>
 
-        <div className="chart-footer">
-          <button type="button" className="ghost" onClick={() => onEdit(patient)}>Edit details</button>
-        </div>
+        {canWrite ? (
+          <div className="chart-footer">
+            <button type="button" className="ghost" onClick={() => onEdit(patient)}>Edit details</button>
+          </div>
+        ) : null}
       </aside>
     </div>
   );
