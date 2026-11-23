@@ -4,6 +4,7 @@ import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import patientsRouter from './routes/patients.js';
 import medicinesRouter from './routes/medicines.js';
+import dashboardRouter from './routes/dashboard.js';
 import Patient from './models/Patient.js';
 import Medicine from './models/Medicine.js';
 import { connectDb } from './db.js';
@@ -56,6 +57,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/patients', patientsRouter);
 app.use('/api/medicines', medicinesRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 app.use((error, _req, res, _next) => {
   console.error(error);

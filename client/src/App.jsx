@@ -10,6 +10,7 @@ import { PatientForm } from './components/PatientForm';
 import { PatientTable } from './components/PatientTable';
 import { ProfileScreen } from './components/ProfileScreen';
 import { UserAdmin } from './components/UserAdmin';
+import { AdminDashboard } from './components/AdminDashboard';
 
 function sortValue(patient, key) {
   if (key === 'allergies') return patient.allergies.join(', ');
@@ -18,6 +19,7 @@ function sortValue(patient, key) {
 }
 
 function sectionFromPath(pathname) {
+  if (pathname.startsWith('/dashboard')) return 'dashboard';
   if (pathname.startsWith('/medicines')) return 'medicines';
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname.startsWith('/users')) return 'users';
@@ -219,7 +221,13 @@ export default function App() {
   }
 
   function switchSection(next) {
-    const paths = { patients: '/patients', medicines: '/medicines', users: '/users', profile: '/profile' };
+    const paths = {
+      dashboard: '/dashboard',
+      patients: '/patients',
+      medicines: '/medicines',
+      users: '/users',
+      profile: '/profile',
+    };
     navigate(paths[next] || '/profile');
     setSelected(null);
     setForm(null);
@@ -294,6 +302,7 @@ export default function App() {
   const readMedicines = can(user?.role, 'medicines', 'read');
   const writeMedicines = can(user?.role, 'medicines', 'write');
   const readUsers = can(user?.role, 'users', 'read');
+  const readDashboard = can(user?.role, 'dashboard', 'read');
   const onAllowedPage = Boolean(user && sectionAllowed(user.role, location.pathname));
 
   if (session !== 'in') {
@@ -332,6 +341,11 @@ export default function App() {
           </div>
           <p className="today">{today}</p>
           <nav className="nav" aria-label="Practice">
+            {readDashboard ? (
+              <button type="button" className={section === 'dashboard' ? 'is-on' : undefined} onClick={() => switchSection('dashboard')}>
+                Dashboard
+              </button>
+            ) : null}
             {readPatients ? (
               <button type="button" className={section === 'patients' ? 'is-on' : undefined} onClick={() => switchSection('patients')}>
                 Patients
@@ -384,6 +398,8 @@ export default function App() {
 
           {!onAllowedPage ? (
             <p className="empty">Opening the daybook…</p>
+          ) : section === 'dashboard' ? (
+            <AdminDashboard />
           ) : section === 'patients' ? (
             <section>
               <header className="stage-head">

@@ -492,6 +492,105 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
 
 .profile-form { max-width: 420px; }
 
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.stat-value {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.dash-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.dash-panel {
+  margin-top: 16px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.dash-split .dash-panel { margin-top: 0; }
+
+.bar-chart {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  margin-top: 12px;
+  overflow-x: auto;
+}
+
+.bar-col {
+  flex: 1 0 28px;
+  display: grid;
+  grid-template-rows: auto 92px auto;
+  justify-items: center;
+  gap: 4px;
+}
+
+.bar-count, .bar-label {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+}
+
+.bar-track {
+  width: 100%;
+  height: 92px;
+  display: flex;
+  align-items: end;
+}
+
+.bar {
+  width: 100%;
+  background: var(--sage);
+  border-radius: 4px 4px 0 0;
+}
+
+.inventory-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+}
+
+.inventory-facts div { margin: 0; }
+
+.inventory-facts dt {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inventory-facts dd {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+}
+
+.feed { list-style: none; margin: 8px 0 0; padding: 0; }
+
+.feed li { padding: 10px 0; border-top: 1px solid var(--line); }
+
+.feed p { color: var(--ink-soft); margin-top: 4px; }
+
 .rail-signout {
   background: transparent;
   color: var(--rail-ink);
@@ -510,5 +609,6 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
   .rail-stats { grid-template-columns: repeat(3, 1fr); margin-top: 0; }
   .stage-head { flex-direction: column; align-items: flex-start; }
   .medicine-form { grid-template-columns: 1fr; }
+  .dash-split { grid-template-columns: 1fr; }
   h1 { font-size: 2rem; }
 }
