@@ -79,6 +79,7 @@ export function PatientDesk({ actor, onToast, onStats }) {
         patientId={id}
         clinical={clinical}
         canWrite={canWrite}
+        showNotes={can(actor.role, 'consultations', 'read')}
         onToast={onToast}
         onStats={onStats}
         onChart={setChart}
@@ -506,7 +507,7 @@ function pendingList(items, draft) {
   return [...items, next].slice(0, 30);
 }
 
-function PatientProfile({ patientId, clinical, canWrite, onToast, onStats, onChart, revision }) {
+function PatientProfile({ patientId, clinical, canWrite, showNotes, onToast, onStats, onChart, revision }) {
   const navigate = useNavigate();
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -589,7 +590,7 @@ function PatientProfile({ patientId, clinical, canWrite, onToast, onStats, onCha
           <button type="button" className="ghost" onClick={() => navigate('/patients')}>All patients</button>
           {canWrite && patient ? <button type="button" className="ghost" onClick={() => navigate(`/patients/${patientId}/edit`)}>Edit</button> : null}
           {canWrite && patient ? (
-            <button type="button" className="ghost" disabled={busy || !patient.active} onClick={recordConsultation}>Record consultation</button>
+            <button type="button" className="ghost" disabled={busy || !patient.active} onClick={recordConsultation}>Record visit</button>
           ) : null}
           {canWrite && patient ? (
             <button type="button" className="solid" disabled={busy} onClick={toggle}>{patient.active ? 'Deactivate' : 'Activate'}</button>
@@ -608,7 +609,7 @@ function PatientProfile({ patientId, clinical, canWrite, onToast, onStats, onCha
             <div><dt>Phone</dt><dd>{patient.phone || '—'}</dd></div>
             <div><dt>Email</dt><dd>{patient.email || '—'}</dd></div>
             <div><dt>Registered</dt><dd>{formatDate(patient.registeredAt) || '—'}</dd></div>
-            <div><dt>Consultations</dt><dd>{patient.visitCount || 0}</dd></div>
+            <div><dt>Visits</dt><dd>{patient.visitCount || 0}</dd></div>
             <div className="wide"><dt>Address</dt><dd>{patient.address || '—'}</dd></div>
             <div className="wide">
               <dt>Emergency contact</dt>
@@ -627,10 +628,11 @@ function PatientProfile({ patientId, clinical, canWrite, onToast, onStats, onCha
               <ChipList items={patient.allergies} empty="No allergies are recorded." />
               <h2 className="section-label">Existing medical conditions</h2>
               <ChipList items={patient.conditions} empty="No medical conditions are recorded." />
-              <h2 className="section-label">Consultation history</h2>
+              {showNotes ? <ClinicalNotes patientId={patientId} canWrite={canWrite && patient.active} revision={revision} /> : null}
+              <h2 className="section-label">Visit record</h2>
               <HistoryList
                 rows={consultations}
-                empty="No consultations are recorded."
+                empty="No visits are recorded."
                 render={(visit) => `${formatWhen(visit.visitedAt)} · ${visit.treatmentCount} medicine${visit.treatmentCount === 1 ? '' : 's'}`}
               />
               <h2 className="section-label">Treatment history</h2>
@@ -652,6 +654,51 @@ function PatientProfile({ patientId, clinical, canWrite, onToast, onStats, onCha
         </>
       ) : null}
     </section>
+  );
+}
+
+function ClinicalNotes({ patientId, canWrite, revision }) {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let ignore = false;
+    api.consultations({ patient: patientId, limit: 20 })
+      .then((result) => {
+        if (!ignore) setRows(result.consultations || []);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.message);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [patientId, revision]);
+
+  return (
+    <>
+      <div className="stage-head">
+        <h2 className="section-label">Consultations</h2>
+        {canWrite ? (
+          <button type="button" className="ghost" onClick={() => navigate(`/consultations/new?patient=${patientId}`)}>
+            New consultation
+          </button>
+        ) : null}
+      </div>
+      {error ? <p className="banner" role="alert">{error}</p> : null}
+      {rows.length === 0 ? <p className="empty">No consultations are recorded.</p> : (
+        <ul className="feed">
+          {rows.map((record) => (
+            <li key={record._id}>
+              <button type="button" className="text-btn" onClick={() => navigate(`/consultations/${record._id}`)}>
+                {formatWhen(record.consultedAt)} · {record.doctorName} · {record.chiefComplaint}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 

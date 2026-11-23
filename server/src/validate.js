@@ -65,6 +65,48 @@ export function parseChoice(value, allowed, label) {
   return { value: choice };
 }
 
+export function parseConsultedAt(value) {
+  if (value == null || String(value).trim() === '') {
+    return { error: 'Consultation date and time are required' };
+  }
+  const consultedAt = new Date(value);
+  if (Number.isNaN(consultedAt.getTime())) return { error: 'Consultation date and time are required' };
+  if (consultedAt.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+    return { error: 'Consultation time cannot be more than a day ahead' };
+  }
+  if (consultedAt.getTime() < Date.UTC(1990, 0, 1)) {
+    return { error: 'Consultation date is too far in the past' };
+  }
+  return { consultedAt };
+}
+
+export function parseVitals(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const vitals = {};
+  const fields = [
+    ['systolic', 40, 300, 'Systolic pressure'],
+    ['diastolic', 20, 200, 'Diastolic pressure'],
+    ['pulse', 0, 300, 'Pulse'],
+    ['temperature', 30, 45, 'Temperature'],
+    ['respiratoryRate', 0, 80, 'Respiratory rate'],
+    ['oxygenSaturation', 0, 100, 'Oxygen saturation'],
+    ['weightKg', 0, 500, 'Weight'],
+    ['heightCm', 0, 300, 'Height'],
+  ];
+  for (const [key, min, max, label] of fields) {
+    if (source[key] == null || source[key] === '') continue;
+    const number = Number(source[key]);
+    if (!Number.isFinite(number) || number < min || number > max) {
+      return { error: `${label} is out of range` };
+    }
+    vitals[key] = Math.round(number * 10) / 10;
+  }
+  if (vitals.systolic != null && vitals.diastolic != null && vitals.diastolic >= vitals.systolic) {
+    return { error: 'Diastolic pressure must be lower than systolic pressure' };
+  }
+  return { vitals };
+}
+
 export function parseEmergencyContact(value) {
   if (value == null) return { contact: { name: '', phone: '', relationship: '' } };
   const name = cleanText(value.name, 120);

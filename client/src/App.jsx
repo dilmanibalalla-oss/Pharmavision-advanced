@@ -9,6 +9,7 @@ import { UserAdmin } from './components/UserAdmin';
 import { AdminDashboard } from './components/AdminDashboard';
 import { DoctorDesk } from './components/DoctorDesk';
 import { PatientDesk } from './components/PatientDesk';
+import { ConsultationDesk } from './components/ConsultationDesk';
 
 function sectionFromPath(pathname) {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
@@ -16,6 +17,7 @@ function sectionFromPath(pathname) {
   if (pathname.startsWith('/medicines')) return 'medicines';
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname.startsWith('/users')) return 'users';
+  if (pathname.startsWith('/consultations')) return 'consultations';
   return 'patients';
 }
 
@@ -132,6 +134,7 @@ export default function App() {
       dashboard: '/dashboard',
       doctors: '/doctors',
       patients: '/patients',
+      consultations: '/consultations',
       medicines: '/medicines',
       users: '/users',
       profile: '/profile',
@@ -145,6 +148,7 @@ export default function App() {
   }
 
   const readPatients = can(user?.role, 'patients', 'read');
+  const readConsultations = can(user?.role, 'consultations', 'read');
   const writePatients = can(user?.role, 'patients', 'write');
   const readMedicines = can(user?.role, 'medicines', 'read');
   const writeMedicines = can(user?.role, 'medicines', 'write');
@@ -199,6 +203,11 @@ export default function App() {
                 Doctors
               </button>
             ) : null}
+            {readConsultations ? (
+              <button type="button" className={section === 'consultations' ? 'is-on' : undefined} onClick={() => switchSection('consultations')}>
+                Consultations
+              </button>
+            ) : null}
             {readPatients ? (
               <button type="button" className={section === 'patients' ? 'is-on' : undefined} onClick={() => switchSection('patients')}>
                 Patients
@@ -233,7 +242,7 @@ export default function App() {
             </div>
           </dl>
           {writePatients ? (
-            <p className="rail-note">Recording a consultation adds one to the patient’s visit count.</p>
+            <p className="rail-note">Recording a visit adds one to the patient’s visit count.</p>
           ) : null}
           {user ? (
             <div className="who">
@@ -255,6 +264,8 @@ export default function App() {
             <AdminDashboard />
           ) : section === 'doctors' ? (
             <DoctorDesk actor={user} onToast={notify} />
+          ) : section === 'consultations' ? (
+            <ConsultationDesk actor={user} onToast={notify} />
           ) : section === 'patients' ? (
             <PatientDesk actor={user} onToast={notify} onStats={loadStats} />
           ) : section === 'medicines' ? (
