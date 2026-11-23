@@ -5,6 +5,23 @@ import { api } from '../api';
 import { formatDate, formatWhen, treatmentLabel } from '../format';
 import { PatientChart } from './PatientChart';
 
+const PLAN_STATUS = {
+  PLANNED: 'Planned',
+  ACTIVE: 'Active',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  ON_HOLD: 'On hold',
+};
+
+function linkedPlanText(plans, lineId) {
+  const names = (plans || [])
+    .filter((plan) => (plan.prescriptions || []).some((item) => String(item._id) === String(lineId)))
+    .map((plan) => plan.diagnosis || plan.description)
+    .filter(Boolean);
+  if (!names.length) return '';
+  return ` · Linked to ${names.join(', ')}`;
+}
+
 const GENDERS = ['Female', 'Male', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -514,6 +531,8 @@ function PatientProfile({ patientId, clinical, canWrite, showNotes, showPlans, o
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState(null);
+  const [historyError, setHistoryError] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -548,6 +567,23 @@ function PatientProfile({ patientId, clinical, canWrite, showNotes, showPlans, o
       ignore = true;
     };
   }, [patientId, revision]);
+
+  useEffect(() => {
+    if (!showPlans) return undefined;
+    let ignore = false;
+    setHistory(null);
+    setHistoryError('');
+    api.treatmentHistory(patientId)
+      .then((result) => {
+        if (!ignore) setHistory(result);
+      })
+      .catch((err) => {
+        if (!ignore) setHistoryError(err.message);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [showPlans, patientId, revision]);
 
   async function toggle() {
     setBusy(true);
@@ -630,24 +666,25 @@ function PatientProfile({ patientId, clinical, canWrite, showNotes, showPlans, o
               <h2 className="section-label">Existing medical conditions</h2>
               <ChipList items={patient.conditions} empty="No medical conditions are recorded." />
               {showNotes ? <ClinicalNotes patientId={patientId} canWrite={canWrite && patient.active} revision={revision} /> : null}
-              {showPlans ? <PlanNotes patientId={patientId} canWrite={canWrite && patient.active} revision={revision} /> : null}
+              {showPlans ? (
+                <TreatmentHistory
+                  patientId={patientId}
+                  canWrite={canWrite && patient.active}
+                  history={history}
+                  error={historyError}
+                />
+              ) : null}
               <h2 className="section-label">Visit record</h2>
               <HistoryList
                 rows={consultations}
                 empty="No visits are recorded."
                 render={(visit) => `${formatWhen(visit.visitedAt)} · ${visit.treatmentCount} medicine${visit.treatmentCount === 1 ? '' : 's'}`}
               />
-              <h2 className="section-label">Treatment history</h2>
-              <HistoryList
-                rows={lines}
-                empty="No treatments are recorded."
-                render={(item) => `${formatWhen(item.recordedAt || item.visitedAt)} · ${treatmentLabel(item)}${item.notes ? ` · ${item.notes}` : ''}`}
-              />
               <h2 className="section-label">Prescription history</h2>
               <HistoryList
                 rows={lines}
                 empty="No prescriptions are recorded."
-                render={(item) => `${formatWhen(item.recordedAt || item.visitedAt)} · ${treatmentLabel(item)}`}
+                render={(item) => `${formatWhen(item.recordedAt || item.visitedAt)} · ${treatmentLabel(item)}${linkedPlanText(history?.treatmentPlans, item._id)}`}
               />
             </>
           ) : (
@@ -704,48 +741,78 @@ function ClinicalNotes({ patientId, canWrite, revision }) {
   );
 }
 
-function PlanNotes({ patientId, canWrite, revision }) {
-  const navigate = useNavigate();
-  const [rows, setRows] = useState([]);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let ignore = false;
-    api.treatmentPlans({ patient: patientId, limit: 20 })
-      .then((result) => {
-        if (!ignore) setRows(result.treatmentPlans || []);
-      })
-      .catch((err) => {
-        if (!ignore) setError(err.message);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [patientId, revision]);
+function TreatmentHistory({ patientId, canWrite, history, error }) {
+  const plans = history?.treatmentPlans || [];
+  const active = plans.filter((record) => record.status === 'ACTIVE');
+  const completed = plans.filter((record) => record.status === 'COMPLETED');
+  const other = plans.filter((record) => record.status !== 'ACTIVE' && record.status !== 'COMPLETED');
+  const loading = !history && !error;
 
   return (
     <>
       <div className="stage-head">
-        <h2 className="section-label">Treatment plans</h2>
+        <h2 className="section-label">Treatment history</h2>
         {canWrite ? (
-          <button type="button" className="ghost" onClick={() => navigate(`/treatment-plans/new?patient=${patientId}`)}>
-            New treatment plan
-          </button>
+          <HistoryAction patientId={patientId} />
         ) : null}
       </div>
+      <p className="lede">These plans stay separate from the prescription lines on the chart.</p>
       {error ? <p className="banner" role="alert">{error}</p> : null}
-      {rows.length === 0 ? <p className="empty">No treatment plans are recorded.</p> : (
+      {loading ? <p className="empty">Opening the daybook…</p> : null}
+      {!loading && !error && plans.length === 0 ? <p className="empty">No treatment plans are recorded.</p> : null}
+      {!loading && !error && history && history.total > plans.length ? (
+        <p className="muted">Showing the {plans.length} most recent plans of {history.total}.</p>
+      ) : null}
+      {!loading && !error && plans.length > 0 ? (
+        <>
+          <HistoryGroup title="Active" rows={active} empty="No active treatments." />
+          <HistoryGroup title="Completed" rows={completed} empty="No completed treatments." />
+          {other.length > 0 ? <HistoryGroup title="Other plans" rows={other} /> : null}
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function HistoryAction({ patientId }) {
+  const navigate = useNavigate();
+  return (
+    <button type="button" className="ghost" onClick={() => navigate(`/treatment-plans/new?patient=${patientId}`)}>
+      New treatment plan
+    </button>
+  );
+}
+
+function HistoryGroup({ title, rows, empty }) {
+  return (
+    <>
+      <h3 className="section-label">{title}</h3>
+      {rows.length === 0 ? <p className="empty">{empty}</p> : (
         <ul className="feed">
-          {rows.map((record) => (
-            <li key={record._id}>
-              <button type="button" className="text-btn" onClick={() => navigate(`/treatment-plans/${record._id}`)}>
-                {formatDate(record.startDate)} · {record.doctorName} · {record.diagnosis || record.description} · {({ PLANNED: 'Planned', ACTIVE: 'Active', COMPLETED: 'Completed', CANCELLED: 'Cancelled', ON_HOLD: 'On hold' })[record.status] || record.status}
-              </button>
-            </li>
-          ))}
+          {rows.map((record) => <HistoryItem key={record._id} record={record} />)}
         </ul>
       )}
     </>
+  );
+}
+
+function HistoryItem({ record }) {
+  const navigate = useNavigate();
+  const latest = [...(record.progress || [])].reverse().find((entry) => entry.note);
+  const linked = (record.prescriptions || []).map((item) => treatmentLabel(item)).filter(Boolean);
+  const end = record.endDate ? ` – ${formatDate(record.endDate)}` : '';
+  return (
+    <li>
+      <button type="button" className="text-btn" onClick={() => navigate(`/treatment-plans/${record._id}`)}>
+        {formatDate(record.startDate)}{end} · {record.doctorName} · {record.diagnosis || record.description} · {PLAN_STATUS[record.status] || record.status}
+      </button>
+      <p>
+        {record.description}
+        {record.followUpDate ? ` Follow-up ${formatDate(record.followUpDate)}.` : ''}
+        {linked.length ? ` Linked prescription: ${linked.join('; ')}.` : ''}
+        {latest?.note ? ` ${latest.note}` : ''}
+      </p>
+    </li>
   );
 }
 

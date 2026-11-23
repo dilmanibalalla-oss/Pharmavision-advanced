@@ -89,6 +89,69 @@ export function TreatmentDesk({ actor, onToast }) {
   return <TreatmentList actor={actor} canWrite={canWrite} />;
 }
 
+function PlanRows({ rows, onOpen }) {
+  return (
+    <>
+      <div className="table-wrap plan-table">
+        <table className="ledger">
+          <thead>
+            <tr>
+              <th>Start</th>
+              <th>Patient</th>
+              <th>Doctor</th>
+              <th>Diagnosis</th>
+              <th>Status</th>
+              <th>Follow-up</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((record) => (
+              <tr key={record._id} className="is-clickable" onClick={() => onOpen(record._id)}>
+                <td>{formatDate(record.startDate)}</td>
+                <td className="name-cell">{record.patientName}</td>
+                <td>{record.doctorName}</td>
+                <td>{record.diagnosis || '—'}</td>
+                <td>{statusLabel(record.status)}</td>
+                <td>{formatDate(record.followUpDate) || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="plan-cards">
+        {rows.map((record) => (
+          <button key={record._id} type="button" className="plan-card" onClick={() => onOpen(record._id)}>
+            <strong>{record.patientName}</strong>
+            <span>{formatDate(record.startDate)} · {statusLabel(record.status)}</span>
+            <span>{record.diagnosis || record.description}</span>
+            <span>
+              {record.doctorName}
+              {record.followUpDate ? ` · Follow-up ${formatDate(record.followUpDate)}` : ''}
+            </span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function PlanGroup({ title, rows, total, empty, onOpen, onShowAll }) {
+  return (
+    <section>
+      <h2 className="section-label">{title}</h2>
+      {rows.length === 0 ? <p className="empty">{empty}</p> : <PlanRows rows={rows} onOpen={onOpen} />}
+      {onShowAll ? (
+        <div className="pager">
+          <p className="count">Showing {rows.length} of {total}</p>
+          <button type="button" className="ghost" onClick={onShowAll}>Show every {title.toLowerCase()}</button>
+        </div>
+      ) : total > 0 ? (
+        <p className="count">{total} {title.toLowerCase()}</p>
+      ) : null}
+    </section>
+  );
+}
+
 function TreatmentList({ actor, canWrite }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -103,7 +166,9 @@ function TreatmentList({ actor, canWrite }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
-  const filterKey = `${debounced}|${doctor}|${status}|${from}|${to}`;
+  const [view, setView] = useState('all');
+  const [overview, setOverview] = useState(null);
+  const filterKey = `${debounced}|${doctor}|${status}|${from}|${to}|${view}`;
   const [appliedFilter, setAppliedFilter] = useState(filterKey);
   if (appliedFilter !== filterKey) {
     setAppliedFilter(filterKey);
@@ -129,9 +194,19 @@ function TreatmentList({ actor, canWrite }) {
   }, [actor.role]);
 
   useEffect(() => {
+    if (view === 'board') return undefined;
     let ignore = false;
     setLoading(true);
-    api.treatmentPlans({ q: debounced, doctor, status, from, to, page, limit: 10 })
+    api.treatmentPlans({
+      q: debounced,
+      doctor,
+      status: view === 'all' ? status : '',
+      from,
+      to,
+      due: view === 'due' ? 'true' : '',
+      page,
+      limit: 10,
+    })
       .then((list) => {
         if (ignore) return;
         setData(list);
@@ -146,10 +221,36 @@ function TreatmentList({ actor, canWrite }) {
     return () => {
       ignore = true;
     };
-  }, [debounced, doctor, status, from, to, page, retry]);
+  }, [debounced, doctor, status, from, to, page, retry, view]);
+
+  useEffect(() => {
+    if (view !== 'board') return undefined;
+    let ignore = false;
+    setLoading(true);
+    api.treatmentOverview({ q: debounced, doctor, from, to })
+      .then((result) => {
+        if (ignore) return;
+        setOverview(result);
+        setError('');
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.message);
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [debounced, doctor, from, to, retry, view]);
 
   const rows = data?.treatmentPlans || [];
-  const filtered = Boolean(debounced || doctor || status || from || to);
+  const filtered = Boolean(debounced || doctor || status || from || to || view === 'due');
+  const empty = view === 'due'
+    ? 'No follow-ups are due.'
+    : filtered
+      ? 'No treatment plans match that search.'
+      : 'No treatment plans are recorded yet.';
 
   return (
     <section>
@@ -162,6 +263,11 @@ function TreatmentList({ actor, canWrite }) {
           <button type="button" className="solid" onClick={() => navigate('/treatment-plans/new')}>New treatment plan</button>
         ) : null}
       </header>
+      <div className="segment" role="group" aria-label="Treatment views">
+        <button type="button" className={view === 'all' ? 'ghost is-on' : 'ghost'} onClick={() => setView('all')}>All plans</button>
+        <button type="button" className={view === 'board' ? 'ghost is-on' : 'ghost'} onClick={() => setView('board')}>Active and completed</button>
+        <button type="button" className={view === 'due' ? 'ghost is-on' : 'ghost'} onClick={() => setView('due')}>Follow-ups due</button>
+      </div>
       <div className="filters">
         <label className="search">
           <span className="sr">Search treatment plans</span>
@@ -184,13 +290,15 @@ function TreatmentList({ actor, canWrite }) {
             </select>
           </label>
         )}
-        <label>
-          Status
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">All statuses</option>
-            {STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
+        {view === 'all' ? (
+          <label>
+            Status
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              <option value="">All statuses</option>
+              {STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+        ) : null}
         <label>
           From
           <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
@@ -206,38 +314,36 @@ function TreatmentList({ actor, canWrite }) {
           <button type="button" className="text-btn" onClick={() => setRetry((current) => current + 1)}>Try again</button>
         </p>
       ) : null}
-      {loading ? <p className="empty">Opening the daybook…</p> : null}
-      {!loading && !error && rows.length === 0 ? (
-        <p className="empty">{filtered ? 'No treatment plans match that search.' : 'No treatment plans are recorded yet.'}</p>
+      {view === 'due' ? (
+        <p className="lede">These plans are planned, active, or on hold, and the follow-up date is today or earlier.</p>
       ) : null}
-      {!loading && !error && rows.length > 0 ? (
+      {loading ? <p className="empty">Opening the daybook…</p> : null}
+      {!loading && !error && view === 'board' && overview ? (
         <>
-          <div className="table-wrap">
-            <table className="ledger">
-              <thead>
-                <tr>
-                  <th>Start</th>
-                  <th>Patient</th>
-                  <th>Doctor</th>
-                  <th>Diagnosis</th>
-                  <th>Status</th>
-                  <th>Follow-up</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((record) => (
-                  <tr key={record._id} className="is-clickable" onClick={() => navigate(`/treatment-plans/${record._id}`)}>
-                    <td>{formatDate(record.startDate)}</td>
-                    <td className="name-cell">{record.patientName}</td>
-                    <td>{record.doctorName}</td>
-                    <td>{record.diagnosis || '—'}</td>
-                    <td>{statusLabel(record.status)}</td>
-                    <td>{formatDate(record.followUpDate) || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PlanGroup
+            title="Active treatments"
+            rows={overview.active.treatmentPlans}
+            total={overview.active.total}
+            empty="No active treatments."
+            onOpen={(id) => navigate(`/treatment-plans/${id}`)}
+            onShowAll={overview.active.total > overview.active.treatmentPlans.length ? () => { setStatus('ACTIVE'); setView('all'); } : null}
+          />
+          <PlanGroup
+            title="Completed treatments"
+            rows={overview.completed.treatmentPlans}
+            total={overview.completed.total}
+            empty="No completed treatments."
+            onOpen={(id) => navigate(`/treatment-plans/${id}`)}
+            onShowAll={overview.completed.total > overview.completed.treatmentPlans.length ? () => { setStatus('COMPLETED'); setView('all'); } : null}
+          />
+        </>
+      ) : null}
+      {!loading && !error && view !== 'board' && rows.length === 0 ? (
+        <p className="empty">{empty}</p>
+      ) : null}
+      {!loading && !error && view !== 'board' && rows.length > 0 ? (
+        <>
+          <PlanRows rows={rows} onOpen={(id) => navigate(`/treatment-plans/${id}`)} />
           <div className="pager">
             <p className="count">{data.total} treatment plans</p>
             <button type="button" className="ghost" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button>
@@ -259,6 +365,7 @@ function TreatmentForm({ actor, planId, presetPatient, presetConsultation, onToa
   const [doctors, setDoctors] = useState([]);
   const [consultations, setConsultations] = useState([]);
   const [chartLines, setChartLines] = useState([]);
+  const [savedLinks, setSavedLinks] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(editing || Boolean(presetPatient || presetConsultation));
   const [saving, setSaving] = useState(false);
@@ -289,8 +396,14 @@ function TreatmentForm({ actor, planId, presetPatient, presetConsultation, onToa
             endDate: dateInput(record.endDate),
             followUpDate: dateInput(record.followUpDate),
             status: record.status,
-            prescriptions: (record.prescriptions || []).map((item) => item._id),
+            prescriptions: (record.prescriptions || []).map((item) => String(item._id)),
           });
+          setSavedLinks((record.prescriptions || []).map((item) => ({
+            _id: String(item._id),
+            medicineName: item.medicineName,
+            strength: item.strength || '',
+            form: item.form || '',
+          })));
           setPatientLabel(`${record.patientName}${record.patientCode ? ` · ${record.patientCode}` : ''}`);
         } else if (consultation) {
           setForm((current) => ({
@@ -355,6 +468,21 @@ function TreatmentForm({ actor, planId, presetPatient, presetConsultation, onToa
     };
   }, [form?.patient]);
 
+  useEffect(() => {
+    const selected = form?.consultation;
+    if (!selected || consultations.some((item) => item._id === selected)) return undefined;
+    let ignore = false;
+    api.consultation(selected)
+      .then((note) => {
+        if (ignore || !note?._id) return;
+        setConsultations((current) => (current.some((item) => item._id === note._id) ? current : [note, ...current]));
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, [form?.consultation, consultations]);
+
   function update(field) {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
   }
@@ -371,6 +499,11 @@ function TreatmentForm({ actor, planId, presetPatient, presetConsultation, onToa
     });
   }
 
+  const extraLinks = savedLinks.filter((item) => !chartLines.some((line) => String(line._id) === item._id));
+  const prescriptionChoices = [
+    ...chartLines.map((item) => ({ ...item, _id: String(item._id) })),
+    ...extraLinks,
+  ];
   const selectedConsultation = consultations.find((item) => item._id === form?.consultation);
   const consultationDiagnosis = selectedConsultation?.diagnosis || '';
 
@@ -431,6 +564,7 @@ function TreatmentForm({ actor, planId, presetPatient, presetConsultation, onToa
                   onChange={(event) => {
                     setPatientLabel(event.target.value);
                     setForm((current) => ({ ...current, patient: '', consultation: '', prescriptions: [] }));
+                    setSavedLinks([]);
                     setConsultations([]);
                     setChartLines([]);
                   }}
@@ -451,6 +585,7 @@ function TreatmentForm({ actor, planId, presetPatient, presetConsultation, onToa
                             consultation: '',
                             prescriptions: [],
                           }));
+                          setSavedLinks([]);
                           setPatientLabel(`${patient.name}${patient.patientCode ? ` · ${patient.patientCode}` : ''}`);
                           setMatches([]);
                         }}
@@ -531,18 +666,22 @@ function TreatmentForm({ actor, planId, presetPatient, presetConsultation, onToa
           </label>
           <div className="wide">
             <p className="field-label">Prescriptions on this chart</p>
-            {chartLines.length === 0 ? (
+            {prescriptionChoices.length === 0 ? (
               <p className="empty">No prescriptions are on this chart. The plan can be saved without one.</p>
             ) : (
               <div className="checks">
-                {chartLines.map((item) => (
+                {prescriptionChoices.map((item) => (
                   <label key={item._id}>
                     <input
                       type="checkbox"
-                      checked={form.prescriptions.includes(item._id)}
-                      onChange={() => togglePrescription(item._id)}
+                      checked={form.prescriptions.includes(String(item._id))}
+                      onChange={() => togglePrescription(String(item._id))}
                     />
-                    <span>{treatmentLabel(item)}{item.notes ? ` · ${item.notes}` : ''}</span>
+                    <span>
+                      {treatmentLabel(item)}
+                      {item.notes ? ` · ${item.notes}` : ''}
+                      {extraLinks.some((link) => link._id === String(item._id)) ? ' · no longer on the chart' : ''}
+                    </span>
                   </label>
                 ))}
               </div>

@@ -62,6 +62,7 @@ treatmentPlanSchema.index({ patient: 1, startDate: -1 });
 treatmentPlanSchema.index({ doctor: 1, startDate: -1 });
 treatmentPlanSchema.index({ status: 1, startDate: -1 });
 treatmentPlanSchema.index({ consultation: 1, startDate: -1 });
+treatmentPlanSchema.index({ status: 1, followUpDate: 1 });
 
 function presentLink(item) {
   return {

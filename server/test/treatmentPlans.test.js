@@ -253,4 +253,84 @@ describe('treatment plans', { concurrency: 1 }, () => {
     assert.equal(empty.status, 400);
     assert.match(empty.body.message, /description/i);
   });
+
+  test('shows treatment history apart from prescriptions, and follow-ups that are due', async () => {
+    const later = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const due = await send('/api/treatment-plans', {
+      method: 'POST',
+      body: planBody({
+        diagnosis: 'Due review',
+        description: 'Check the throat again',
+        startDate: '2020-06-01',
+        endDate: null,
+        followUpDate: '2020-06-01',
+        status: 'ACTIVE',
+        prescriptions: [String(lineId)],
+      }),
+    });
+    assert.equal(due.status, 201);
+
+    const laterPlan = await send('/api/treatment-plans', {
+      method: 'POST',
+      body: planBody({
+        diagnosis: 'Later review',
+        description: 'Review next week',
+        startDate: later,
+        endDate: null,
+        followUpDate: later,
+        status: 'PLANNED',
+      }),
+    });
+    assert.equal(laterPlan.status, 201);
+
+    const finished = await send('/api/treatment-plans', {
+      method: 'POST',
+      body: planBody({
+        diagnosis: 'Finished course',
+        description: 'Course finished',
+        startDate: '2020-06-01',
+        endDate: '2020-06-15',
+        followUpDate: null,
+        status: 'COMPLETED',
+      }),
+    });
+    assert.equal(finished.status, 201);
+
+    const dueList = await send('/api/treatment-plans?due=true&q=Due%20review');
+    assert.equal(dueList.status, 200);
+    assert.equal(dueList.body.total, 1);
+    assert.equal(dueList.body.treatmentPlans[0]._id, due.body._id);
+
+    const notDue = await send('/api/treatment-plans?due=true&q=Later%20review');
+    assert.equal(notDue.body.total, 0);
+
+    const overview = await send('/api/treatment-plans/overview?q=Finished%20course');
+    assert.equal(overview.status, 200);
+    assert.equal(overview.body.completed.total, 1);
+    assert.equal(overview.body.active.total, 0);
+    assert.equal(overview.body.completed.treatmentPlans[0].diagnosis, 'Finished course');
+    assert.equal(overview.body.completed.treatmentPlans[0].prescriptions, undefined);
+
+    const history = await send(`/api/treatment-plans/history?patient=${patientId}`);
+    assert.equal(history.status, 200);
+    assert.equal(history.body.counts.ACTIVE, 2);
+    assert.equal(history.body.counts.COMPLETED, 1);
+    assert.equal(history.body.counts.PLANNED, 1);
+    const linked = history.body.treatmentPlans.find((item) => item.diagnosis === 'Due review');
+    assert.equal(linked.prescriptions[0].medicineName, 'Amoxicillin');
+    assert.equal(linked.progress[0].note, 'Plan created');
+
+    const chart = await Patient.findById(patientId);
+    assert.equal(chart.visits[0].treatments[0].notes, 'After food');
+    assert.equal(chart.visits[0].treatments.length, 1);
+
+    const missing = await send('/api/treatment-plans/history');
+    assert.equal(missing.status, 400);
+    const unknown = await send(`/api/treatment-plans/history?patient=${new mongoose.Types.ObjectId()}`);
+    assert.equal(unknown.status, 404);
+    const hiddenHistory = await send(`/api/treatment-plans/history?patient=${patientId}`, { cookie: pharmacistCookie });
+    assert.equal(hiddenHistory.status, 403);
+    const hiddenBoard = await send('/api/treatment-plans/overview', { cookie: pharmacistCookie });
+    assert.equal(hiddenBoard.status, 403);
+  });
 });

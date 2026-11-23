@@ -85,6 +85,15 @@ export const api = {
     const query = search.toString();
     return request(`/api/treatment-plans${query ? `?${query}` : ''}`);
   },
+  treatmentHistory: (patient) => request(`/api/treatment-plans/history?patient=${encodeURIComponent(patient)}`),
+  treatmentOverview: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/treatment-plans/overview${query ? `?${query}` : ''}`);
+  },
   treatmentPlan: (id) => request(`/api/treatment-plans/${id}`),
   createTreatmentPlan: (body) => request('/api/treatment-plans', { method: 'POST', body: JSON.stringify(body) }),
   updateTreatmentPlan: (id, body) => request(`/api/treatment-plans/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
