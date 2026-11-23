@@ -441,7 +441,14 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
   margin: 0 0 18px;
 }
 
-.medicine-actions { margin-top: 0; }
+label.file-btn {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  cursor: pointer;
+}
+
+label.file-btn input { display: none; }
 
 .toast {
   position: fixed;
@@ -591,6 +598,40 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
 
 .feed p { color: var(--ink-soft); margin-top: 4px; }
 
+.feed .text-btn { white-space: normal; text-align: left; }
+
+.segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.segment .ghost.is-on {
+  background: var(--sage);
+  color: white;
+  border-color: var(--sage);
+}
+
+.plan-cards { display: none; }
+
+.plan-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.plan-card:hover { background: #f3ecdf; }
+
+.plan-card strong { font-weight: 560; }
+
+.plan-card span { color: var(--ink-soft); }
+
 .rail-signout {
   background: transparent;
   color: var(--rail-ink);
@@ -660,6 +701,13 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
   margin-top: 8px;
 }
 
+.receive-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .pager {
   display: flex;
   justify-content: flex-end;
@@ -680,4 +728,11 @@ label, .field-label { display: grid; gap: 6px; font-size: 0.92rem; }
   .dash-split { grid-template-columns: 1fr; }
   .doctor-form, .record-form, .slot-row { grid-template-columns: 1fr; }
   h1 { font-size: 2rem; }
+}
+
+@media (max-width: 720px) {
+  .plan-table { display: none; }
+  .plan-cards { display: grid; gap: 10px; }
+  .filters label, .filters .search { min-width: 0; flex: 1 1 100%; }
+  .pager, .dialog-actions { flex-wrap: wrap; justify-content: flex-start; }
 }

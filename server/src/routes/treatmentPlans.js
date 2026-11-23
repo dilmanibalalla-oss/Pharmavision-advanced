@@ -215,29 +215,38 @@ function addProgress(record, user, entry) {
   if (record.progress.length > 50) record.progress = record.progress.slice(-50);
 }
 
-router.get('/', requireRole(...TREATMENT_READ), async (req, res) => {
-  const page = pageNumber(req.query.page);
-  const limit = pageLimit(req.query.limit);
-  const q = cleanText(req.query.q, 80);
+const BOARD_LIMIT = 8;
+const HISTORY_LIMIT = 50;
+const OPEN_STATUSES = ['PLANNED', 'ACTIVE', 'ON_HOLD'];
+
+function listFilter(query, options = {}) {
   const filter = {};
-  if (mongoose.isValidObjectId(req.query.patient)) filter.patient = req.query.patient;
-  if (mongoose.isValidObjectId(req.query.doctor)) filter.doctor = req.query.doctor;
-  if (mongoose.isValidObjectId(req.query.consultation)) filter.consultation = req.query.consultation;
-  if (req.query.status) {
-    const status = cleanText(req.query.status, 20);
-    if (!TREATMENT_STATUSES.includes(status)) {
-      return res.status(400).json({ message: 'Status is not one of the listed values' });
-    }
+  if (mongoose.isValidObjectId(query.patient)) filter.patient = new mongoose.Types.ObjectId(String(query.patient));
+  if (mongoose.isValidObjectId(query.doctor)) filter.doctor = new mongoose.Types.ObjectId(String(query.doctor));
+  if (mongoose.isValidObjectId(query.consultation)) {
+    filter.consultation = new mongoose.Types.ObjectId(String(query.consultation));
+  }
+  if (!options.ignoreStatus && query.status) {
+    const status = cleanText(query.status, 20);
+    if (!TREATMENT_STATUSES.includes(status)) return { error: 'Status is not one of the listed values' };
     filter.status = status;
   }
-  const from = req.query.from ? new Date(req.query.from) : null;
-  const to = req.query.to ? new Date(req.query.to) : null;
+  const from = query.from ? new Date(query.from) : null;
+  const to = query.to ? new Date(query.to) : null;
   if (from && !Number.isNaN(from.getTime())) filter.startDate = { ...filter.startDate, $gte: from };
   if (to && !Number.isNaN(to.getTime())) {
     const end = new Date(to);
-    if (String(req.query.to).length <= 10) end.setUTCHours(23, 59, 59, 999);
+    if (String(query.to).length <= 10) end.setUTCHours(23, 59, 59, 999);
     filter.startDate = { ...filter.startDate, $lte: end };
   }
+  const due = !options.ignoreStatus && (query.due === 'true' || query.due === '1');
+  if (due) {
+    const end = new Date();
+    end.setUTCHours(23, 59, 59, 999);
+    filter.followUpDate = { $lte: end };
+    if (!filter.status) filter.status = { $in: OPEN_STATUSES };
+  }
+  const q = cleanText(query.q, 80);
   if (q) {
     const regex = new RegExp(escapeRegex(q), 'i');
     filter.$or = [
@@ -248,10 +257,27 @@ router.get('/', requireRole(...TREATMENT_READ), async (req, res) => {
       { description: regex },
     ];
   }
+  return { filter, due };
+}
 
+function statusCounts(rows) {
+  const counts = Object.fromEntries(TREATMENT_STATUSES.map((status) => [status, 0]));
+  for (const row of rows) {
+    if (Object.prototype.hasOwnProperty.call(counts, row._id)) counts[row._id] = row.count;
+  }
+  return counts;
+}
+
+router.get('/', requireRole(...TREATMENT_READ), async (req, res) => {
+  const page = pageNumber(req.query.page);
+  const limit = pageLimit(req.query.limit);
+  const parsed = listFilter(req.query);
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+  const sort = parsed.due ? { followUpDate: 1, startDate: -1 } : { startDate: -1, createdAt: -1 };
   const [total, records] = await Promise.all([
-    TreatmentPlan.countDocuments(filter),
-    TreatmentPlan.find(filter).sort({ startDate: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+    TreatmentPlan.countDocuments(parsed.filter),
+    TreatmentPlan.find(parsed.filter).sort(sort).skip((page - 1) * limit).limit(limit),
   ]);
   res.json({
     treatmentPlans: records.map((record) => presentTreatmentPlan(record)),
@@ -259,6 +285,62 @@ router.get('/', requireRole(...TREATMENT_READ), async (req, res) => {
     limit,
     total,
     pages: total === 0 ? 0 : Math.ceil(total / limit),
+  });
+});
+
+router.get('/history', requireRole(...TREATMENT_READ), async (req, res) => {
+  if (!mongoose.isValidObjectId(req.query.patient)) {
+    return res.status(400).json({ message: 'Choose a patient' });
+  }
+  const patient = await Patient.findById(req.query.patient).select('name patientCode');
+  if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+  const patientId = patient._id;
+  const [records, grouped] = await Promise.all([
+    TreatmentPlan.find({ patient: patientId }).sort({ startDate: -1, createdAt: -1 }).limit(HISTORY_LIMIT),
+    TreatmentPlan.aggregate([
+      { $match: { patient: patientId } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+  ]);
+  const counts = statusCounts(grouped);
+  const total = TREATMENT_STATUSES.reduce((sum, status) => sum + counts[status], 0);
+  res.json({
+    patient: {
+      _id: patient._id,
+      name: patient.name,
+      patientCode: patient.patientCode || '',
+    },
+    treatmentPlans: records.map((record) => presentTreatmentPlan(record, true)),
+    counts,
+    total,
+  });
+});
+
+router.get('/overview', requireRole(...TREATMENT_READ), async (req, res) => {
+  const parsed = listFilter(req.query, { ignoreStatus: true });
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
+  const sort = { startDate: -1, createdAt: -1 };
+  const [activeTotal, completedTotal, active, completed, grouped] = await Promise.all([
+    TreatmentPlan.countDocuments({ ...parsed.filter, status: 'ACTIVE' }),
+    TreatmentPlan.countDocuments({ ...parsed.filter, status: 'COMPLETED' }),
+    TreatmentPlan.find({ ...parsed.filter, status: 'ACTIVE' }).sort(sort).limit(BOARD_LIMIT),
+    TreatmentPlan.find({ ...parsed.filter, status: 'COMPLETED' }).sort(sort).limit(BOARD_LIMIT),
+    TreatmentPlan.aggregate([
+      { $match: parsed.filter },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+  ]);
+  res.json({
+    active: {
+      treatmentPlans: active.map((record) => presentTreatmentPlan(record)),
+      total: activeTotal,
+    },
+    completed: {
+      treatmentPlans: completed.map((record) => presentTreatmentPlan(record)),
+      total: completedTotal,
+    },
+    counts: statusCounts(grouped),
   });
 });
 

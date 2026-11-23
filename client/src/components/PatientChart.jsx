@@ -5,12 +5,14 @@ import { formatWhen, medicineLabel, treatmentLabel } from '../format';
 export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, onToast, canWrite = true }) {
   const [medicineId, setMedicineId] = useState('');
   const [notes, setNotes] = useState('');
+  const [quantity, setQuantity] = useState('');
   const [saving, setSaving] = useState(false);
   const [undoing, setUndoing] = useState(false);
 
   useEffect(() => {
     setMedicineId('');
     setNotes('');
+    setQuantity('');
   }, [patient._id, patient.visitCount]);
 
   const latest = patient.visits[patient.visits.length - 1];
@@ -22,10 +24,15 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
     if (!medicineId) return;
     setSaving(true);
     try {
-      const updated = await api.addTreatment(patient._id, { medicineId, notes });
+      const updated = await api.addTreatment(patient._id, {
+        medicineId,
+        notes,
+        ...(quantity ? { quantity: Number(quantity) } : {}),
+      });
       onUpdated(updated);
       setMedicineId('');
       setNotes('');
+      setQuantity('');
       onToast('Treatment saved from the medicine catalog.');
     } catch (error) {
       onToast(error.message, 'danger');
@@ -120,6 +127,16 @@ export function PatientChart({ patient, medicines, onClose, onEdit, onUpdated, o
                   </option>
                 ))}
               </select>
+            </label>
+            <label>
+              Quantity
+              <input
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                inputMode="numeric"
+                min="1"
+                placeholder="Optional"
+              />
             </label>
             <label>
               Instructions

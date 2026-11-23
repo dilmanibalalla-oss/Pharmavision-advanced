@@ -216,6 +216,56 @@ export function parsePlanDate(value, label, required = false) {
   return { date };
 }
 
+export function parseStockDate(value, label, required = false) {
+  if (value == null || String(value).trim() === '') {
+    if (required) return { error: `${label} is required` };
+    return { date: null };
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value).trim());
+  if (!match) return { error: `${label} is not a valid date` };
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return { error: `${label} is not a valid date` };
+  }
+  if (date.getTime() < Date.UTC(1980, 0, 1)) return { error: `${label} is too far in the past` };
+  const horizon = Date.UTC(new Date().getUTCFullYear() + 10, 11, 31, 12);
+  if (date.getTime() > horizon) return { error: `${label} is too far in the future` };
+  return { date };
+}
+
+export function parseQuantity(value, label = 'Quantity') {
+  const quantity = Number(value);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1000000) {
+    return { error: `${label} must be a whole number from 1 to 1000000` };
+  }
+  return { quantity };
+}
+
+export function parseUnitCost(value) {
+  const cost = Number(value);
+  if (!Number.isFinite(cost) || cost < 0 || cost > 1000000) {
+    return { error: 'Unit cost must be zero or a positive amount' };
+  }
+  return { unitCost: Math.round(cost * 100) / 100 };
+}
+
+export function parseMinimumStock(value) {
+  if (value == null || String(value).trim() === '') return { minimumStock: 0 };
+  const minimumStock = Number(value);
+  if (!Number.isInteger(minimumStock) || minimumStock < 0 || minimumStock > 1000000) {
+    return { error: 'Minimum stock must be a whole number from 0 upward' };
+  }
+  return { minimumStock };
+}
+
+export function dayStamp(value) {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
 export const MEDICINE_FORMS = [
   'Tablet',
   'Capsule',

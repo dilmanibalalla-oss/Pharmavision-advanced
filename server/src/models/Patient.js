@@ -7,6 +7,7 @@ const treatmentSchema = new mongoose.Schema(
     strength: { type: String, default: '' },
     form: { type: String, default: '' },
     notes: { type: String, default: '' },
+    quantity: { type: Number, min: 1 },
     recordedAt: { type: Date, default: Date.now },
   },
   { _id: true }

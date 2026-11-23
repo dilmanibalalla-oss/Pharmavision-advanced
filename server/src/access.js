@@ -29,6 +29,13 @@ export const CONSULTATION_READ = ['ADMIN', 'DOCTOR'];
 export const CONSULTATION_WRITE = ['ADMIN', 'DOCTOR'];
 export const TREATMENT_READ = ['ADMIN', 'DOCTOR'];
 export const TREATMENT_WRITE = ['ADMIN', 'DOCTOR'];
+export const SUPPLIER_READ = ['ADMIN', 'INVENTORY_MANAGER', 'PHARMACIST'];
+export const SUPPLIER_WRITE = ['ADMIN', 'INVENTORY_MANAGER'];
+export const PURCHASE_READ = ['ADMIN', 'INVENTORY_MANAGER', 'PHARMACIST'];
+export const PURCHASE_WRITE = ['ADMIN', 'INVENTORY_MANAGER'];
+export const INVENTORY_READ = ['ADMIN', 'INVENTORY_MANAGER', 'PHARMACIST', 'DISPENSARY_STAFF'];
+export const INVENTORY_WRITE = ['ADMIN', 'INVENTORY_MANAGER'];
+export const DISPENSE_READ = ['ADMIN', 'PHARMACIST'];
 
 export function canonicalRole(role) {
   if (USER_ROLES.includes(role)) return role;

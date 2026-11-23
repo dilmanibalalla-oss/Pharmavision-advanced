@@ -85,6 +85,15 @@ export const api = {
     const query = search.toString();
     return request(`/api/treatment-plans${query ? `?${query}` : ''}`);
   },
+  treatmentHistory: (patient) => request(`/api/treatment-plans/history?patient=${encodeURIComponent(patient)}`),
+  treatmentOverview: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/treatment-plans/overview${query ? `?${query}` : ''}`);
+  },
   treatmentPlan: (id) => request(`/api/treatment-plans/${id}`),
   createTreatmentPlan: (body) => request('/api/treatment-plans', { method: 'POST', body: JSON.stringify(body) }),
   updateTreatmentPlan: (id, body) => request(`/api/treatment-plans/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
@@ -97,8 +106,87 @@ export const api = {
   undoVisit: (id) => request(`/api/patients/${id}/visit/undo`, { method: 'POST' }),
   addTreatment: (id, body) => request(`/api/patients/${id}/treatments`, { method: 'POST', body: JSON.stringify(body) }),
   removeTreatment: (id, treatmentId) => request(`/api/patients/${id}/treatments/${treatmentId}`, { method: 'DELETE' }),
-  medicines: (q = '') => request(`/api/medicines${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  medicines: (params = '') => {
+    const search = new URLSearchParams();
+    const source = typeof params === 'string' ? { q: params } : params;
+    Object.entries(source).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/medicines${query ? `?${query}` : ''}`);
+  },
   createMedicine: (body) => request('/api/medicines', { method: 'POST', body: JSON.stringify(body) }),
   updateMedicine: (id, body) => request(`/api/medicines/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteMedicine: (id) => request(`/api/medicines/${id}`, { method: 'DELETE' }),
+  setMedicineActive: (id, active) => request(`/api/medicines/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) }),
+  importMedicines: (medicines) => request('/api/medicines/import', { method: 'POST', body: JSON.stringify({ medicines }) }),
+  suppliers: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/suppliers${query ? `?${query}` : ''}`);
+  },
+  supplier: (id) => request(`/api/suppliers/${id}`),
+  supplierPurchases: (id) => request(`/api/suppliers/${id}/purchases`),
+  createSupplier: (body) => request('/api/suppliers', { method: 'POST', body: JSON.stringify(body) }),
+  updateSupplier: (id, body) => request(`/api/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  setSupplierStatus: (id, status) => request(`/api/suppliers/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  purchaseOrders: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/purchase-orders${query ? `?${query}` : ''}`);
+  },
+  purchaseOrder: (id) => request(`/api/purchase-orders/${id}`),
+  createPurchaseOrder: (body) => request('/api/purchase-orders', { method: 'POST', body: JSON.stringify(body) }),
+  addPurchaseItems: (id, items) => request(`/api/purchase-orders/${id}/items`, { method: 'POST', body: JSON.stringify({ items }) }),
+  setPurchaseStatus: (id, status) => request(`/api/purchase-orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  receivePurchase: (id, body) => request(`/api/purchase-orders/${id}/receive`, { method: 'POST', body: JSON.stringify(body) }),
+  inventoryStock: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/inventory/stock${query ? `?${query}` : ''}`);
+  },
+  inventoryBatches: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/inventory/batches${query ? `?${query}` : ''}`);
+  },
+  inventoryAlerts: () => request('/api/inventory/alerts'),
+  inventoryMovements: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/inventory/movements${query ? `?${query}` : ''}`);
+  },
+  postMovement: (body) => request('/api/inventory/movements', { method: 'POST', body: JSON.stringify(body) }),
+  prescriptions: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/dispensing/prescriptions${query ? `?${query}` : ''}`);
+  },
+  dispensePlan: (medicine, quantity) => request(`/api/dispensing/plan?medicine=${encodeURIComponent(medicine)}&quantity=${encodeURIComponent(quantity)}`),
+  dispense: (body) => request('/api/dispensing', { method: 'POST', body: JSON.stringify(body) }),
+  dispensingHistory: (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    });
+    const query = search.toString();
+    return request(`/api/dispensing/history${query ? `?${query}` : ''}`);
+  },
 };
