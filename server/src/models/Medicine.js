@@ -5,6 +5,10 @@ const medicineSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     strength: { type: String, default: '', trim: true },
     form: { type: String, required: true, trim: true },
+    quantity: { type: Number, min: 0 },
+    unitCost: { type: Number, min: 0 },
+    reorderLevel: { type: Number, min: 0 },
+    expiresAt: { type: Date },
   },
   { timestamps: true }
 );

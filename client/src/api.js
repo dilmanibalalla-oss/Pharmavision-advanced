@@ -39,6 +39,7 @@ export const api = {
   users: () => request('/api/users'),
   setUserActive: (id, active) => request(`/api/users/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) }),
   stats: () => request('/api/stats'),
+  dashboard: () => request('/api/dashboard'),
   patients: (q = '') => request(`/api/patients${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   patient: (id) => request(`/api/patients/${id}`),
   createPatient: (body) => request('/api/patients', { method: 'POST', body: JSON.stringify(body) }),
