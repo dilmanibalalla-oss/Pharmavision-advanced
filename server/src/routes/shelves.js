@@ -19,6 +19,20 @@ function finite(value, min, max) {
   return number;
 }
 
+function readCalibration(body) {
+  if (!body.calibration) return { calibration: null };
+  const status = cleanText(body.calibration.status, 20).toUpperCase();
+  if (!['UNSET', 'MANUAL', 'TRACKED'].includes(status)) {
+    return { error: 'Calibration status is not recognized' };
+  }
+  return {
+    calibration: {
+      status,
+      method: cleanText(body.calibration.method, 40),
+    },
+  };
+}
+
 function readDevice(body) {
   const device = body.device || {};
   return {
@@ -114,6 +128,8 @@ router.post('/', requireRole(...SHELF_WRITE), async (req, res) => {
   if (space.error) return res.status(400).json({ message: space.error });
   const sections = await readSections(req.body.sections || []);
   if (sections.error) return res.status(400).json({ message: sections.error });
+  const calibration = readCalibration(req.body);
+  if (calibration.error) return res.status(400).json({ message: calibration.error });
   const shelf = await Shelf.create({
     shelfCode: await allocateCode('shelf', 'SHF'),
     name,
@@ -121,6 +137,7 @@ router.post('/', requireRole(...SHELF_WRITE), async (req, res) => {
     sections: sections.sections,
     ...space,
     device: readDevice(req.body),
+    ...(calibration.calibration ? { calibration: calibration.calibration } : {}),
     status: 'ACTIVE',
     createdBy: req.user._id,
     createdByName: req.user.name,
@@ -163,6 +180,11 @@ router.put('/:id', requireRole(...SHELF_WRITE), async (req, res) => {
     shelf.coordinateSystem = space.coordinateSystem;
   }
   if (req.body.device) shelf.device = readDevice(req.body);
+  if (req.body.calibration) {
+    const calibration = readCalibration(req.body);
+    if (calibration.error) return res.status(400).json({ message: calibration.error });
+    shelf.calibration = calibration.calibration;
+  }
   if (req.body.sections) {
     const sections = await readSections(req.body.sections);
     if (sections.error) return res.status(400).json({ message: sections.error });

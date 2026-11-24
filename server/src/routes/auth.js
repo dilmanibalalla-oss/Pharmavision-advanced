@@ -9,6 +9,7 @@ import {
   clearAuthCookies,
   clearSession,
   findRefreshUser,
+  isMobileClient,
   issueSession,
   requireAuth,
 } from '../middleware/auth.js';
@@ -18,6 +19,15 @@ const limitLogin = rateLimit({ name: 'LOGIN', limit: 100, windowMs: 60 * 1000 })
 
 function readPassword(value) {
   return String(value ?? '');
+}
+
+function sessionPayload(req, user, tokens) {
+  const body = { user: publicUser(user) };
+  if (isMobileClient(req)) {
+    body.accessToken = tokens.accessToken;
+    body.refreshToken = tokens.refreshToken;
+  }
+  return body;
 }
 
 router.post('/login', limitLogin, async (req, res) => {
@@ -35,10 +45,10 @@ router.post('/login', limitLogin, async (req, res) => {
   }
 
   user.role = role;
-  await issueSession(res, user);
+  const tokens = await issueSession(res, user);
   req.user = user;
   await recordAudit(req, { action: 'login', entityType: 'user', entityId: user._id, summary: 'Signed in' });
-  res.json({ user: publicUser(user) });
+  res.json(sessionPayload(req, user, tokens));
 });
 
 router.post('/refresh', async (req, res) => {
@@ -49,8 +59,8 @@ router.post('/refresh', async (req, res) => {
     return res.status(401).json({ message: 'Sign in to continue' });
   }
   user.role = role;
-  await issueSession(res, user);
-  res.json({ user: publicUser(user) });
+  const tokens = await issueSession(res, user);
+  res.json(sessionPayload(req, user, tokens));
 });
 
 router.post('/logout', async (req, res) => {
@@ -96,8 +106,8 @@ router.post('/password', requireAuth, async (req, res) => {
   user.passwordHash = await bcrypt.hash(newPassword, 10);
   user.role = canonicalRole(user.role);
   await user.save();
-  await issueSession(res, user);
-  res.json({ user: publicUser(user) });
+  const tokens = await issueSession(res, user);
+  res.json(sessionPayload(req, user, tokens));
 });
 
 export default router;
