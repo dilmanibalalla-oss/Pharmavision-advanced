@@ -43,6 +43,10 @@ const shelfSchema = new mongoose.Schema(
       model: { type: String, default: '' },
       appVersion: { type: String, default: '' },
     },
+    calibration: {
+      status: { type: String, enum: ['UNSET', 'MANUAL', 'TRACKED'], default: 'UNSET' },
+      method: { type: String, default: '' },
+    },
     status: { type: String, enum: ['ACTIVE', 'INACTIVE'], default: 'ACTIVE' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdByName: { type: String, default: '' },
@@ -74,6 +78,10 @@ export function presentShelf(record) {
     boundary: record.boundary || { unit: 'm', width: 0, height: 0, depth: 0, points: [] },
     coordinateSystem: record.coordinateSystem || { name: 'shelf-local', handedness: 'right', up: 'y', unit: 'm' },
     device: record.device || { platform: '', os: '', model: '', appVersion: '' },
+    calibration: {
+      status: record.calibration?.status || 'UNSET',
+      method: record.calibration?.method || '',
+    },
     status: record.status,
     createdBy: record.createdBy || null,
     createdByName: record.createdByName || '',

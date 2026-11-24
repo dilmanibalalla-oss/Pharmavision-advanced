@@ -231,9 +231,80 @@ describe('vision, reports and security', { concurrency: 1 }, () => {
     assert.equal(resolved.status, 200, JSON.stringify(resolved.body));
     assert.equal(resolved.body.status, 'RESOLVED');
 
+    const reviewed = await send(`/api/scans/${scan.body._id}/review`, {
+      method: 'POST',
+      body: { confirmed: true, note: 'Reviewed the photo. These counts stay observations.' },
+    });
+    assert.equal(reviewed.status, 200, JSON.stringify(reviewed.body));
+    assert.equal(reviewed.body.stockChanged, false);
+    assert.equal(reviewed.body.review.status, 'CONFIRMED');
+    assert.equal(reviewed.body.observations.length, 3);
+    assert.equal(await Batch.countDocuments(), 0);
+
+    const unconfirmed = await send(`/api/scans/${scan.body._id}/review`, {
+      method: 'POST',
+      cookie: pharmacistCookie,
+      body: { confirmed: false },
+    });
+    assert.equal(unconfirmed.status, 400);
+
+    const doctorReview = await send(`/api/scans/${scan.body._id}/review`, {
+      method: 'POST',
+      cookie: doctorCookie,
+      body: { confirmed: true, note: 'Should not be allowed' },
+    });
+    assert.equal(doctorReview.status, 403);
+
     const detail = await send(`/api/shelves/${shelf.body._id}`);
     assert.ok(detail.body.lastScanAt);
     assert.equal(detail.body.scans.length, 1);
+
+    const registered = await send('/api/shelves', {
+      method: 'POST',
+      cookie: inventoryCookie,
+      body: {
+        name: 'Wall shelf',
+        location: 'Dispensary west',
+        sections: [
+          { code: 'A', name: 'Top' },
+          { code: 'B', name: 'Bottom' },
+        ],
+        boundary: {
+          unit: 'ratio',
+          width: 0.62,
+          height: 0.41,
+          depth: 0,
+          points: [
+            { x: 0.12, y: 0.18, z: 0 },
+            { x: 0.74, y: 0.18, z: 0 },
+            { x: 0.74, y: 0.59, z: 0 },
+            { x: 0.12, y: 0.59, z: 0 },
+          ],
+        },
+        coordinateSystem: {
+          name: 'image-normalized',
+          handedness: 'right',
+          up: 'y',
+          unit: 'ratio',
+          origin: { x: 0, y: 0, z: 0 },
+        },
+        calibration: { status: 'MANUAL', method: 'image-plane' },
+        device: { platform: 'android', os: 'Android 14', model: 'phone', appVersion: '1.0.0' },
+      },
+    });
+    assert.equal(registered.status, 201, JSON.stringify(registered.body));
+    assert.equal(registered.body.calibration.status, 'MANUAL');
+    assert.equal(registered.body.calibration.method, 'image-plane');
+    assert.equal(registered.body.boundary.points.length, 4);
+    assert.equal(registered.body.sections.length, 2);
+    assert.equal(registered.body.createdByName, 'Stores');
+    assert.equal(registered.body.device.platform, 'android');
+
+    const badCalibration = await send('/api/shelves', {
+      method: 'POST',
+      body: { name: 'Bad shelf', location: 'Room', calibration: { status: 'GUILTY' } },
+    });
+    assert.equal(badCalibration.status, 400);
   });
 
   test('exports reports from stored records without contact details', async () => {

@@ -149,6 +149,32 @@ router.post('/', requireRole(...SCAN_WRITE), async (req, res) => {
   res.status(201).json(presentScan(scan));
 });
 
+router.post('/:id/review', requireRole(...SCAN_WRITE), async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: 'Scan not found' });
+  const scan = await Scan.findById(req.params.id);
+  if (!scan) return res.status(404).json({ message: 'Scan not found' });
+  if (scan.status !== 'OBSERVED') {
+    return res.status(400).json({ message: 'Detection results have to arrive before they can be confirmed' });
+  }
+  if (req.body.confirmed !== true) return res.status(400).json({ message: 'Confirm that a person reviewed these observations' });
+  const note = cleanText(req.body.note, 1000);
+  scan.review = {
+    status: 'CONFIRMED',
+    note,
+    reviewedBy: req.user._id,
+    reviewedByName: req.user.name,
+    reviewedAt: new Date(),
+  };
+  await scan.save();
+  await recordAudit(req, {
+    action: 'scan-reviewed',
+    entityType: 'scan',
+    entityId: scan._id,
+    summary: `Observations on ${scan.scanCode} reviewed. Stock was not changed.`,
+  });
+  res.json({ ...presentScan(scan), stockChanged: false });
+});
+
 router.get('/:id', requireRole(...SCAN_READ), async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: 'Scan not found' });
   const scan = await Scan.findById(req.params.id);

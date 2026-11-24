@@ -52,6 +52,13 @@ const scanSchema = new mongoose.Schema(
     image: { type: Buffer, select: false },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     userName: { type: String, default: '' },
+    review: {
+      status: { type: String, enum: ['UNREVIEWED', 'CONFIRMED'], default: 'UNREVIEWED' },
+      note: { type: String, default: '' },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      reviewedByName: { type: String, default: '' },
+      reviewedAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );
@@ -93,6 +100,13 @@ export function presentScan(record) {
     imageSize: record.imageSize || 0,
     user: record.user || null,
     userName: record.userName || '',
+    review: {
+      status: record.review?.status || 'UNREVIEWED',
+      note: record.review?.note || '',
+      reviewedBy: record.review?.reviewedBy || null,
+      reviewedByName: record.review?.reviewedByName || '',
+      reviewedAt: record.review?.reviewedAt || null,
+    },
     createdAt: record.createdAt,
   };
 }

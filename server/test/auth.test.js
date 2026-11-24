@@ -134,3 +134,72 @@ test('a role without access is rejected', async () => {
   assert.equal(allowedBody.name, 'Ada');
   assert.equal(allowedBody.passwordHash, undefined);
 });
+
+test('a browser origin does not receive mobile tokens', async () => {
+  const response = await fetch(`${base}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Pharmavision-Client': 'mobile',
+      Origin: 'http://localhost:5175',
+    },
+    body: JSON.stringify({ email: 'store@helio.local', password: 'correct-password' }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.user.email, 'store@helio.local');
+  assert.equal(body.accessToken, undefined);
+  assert.equal(body.refreshToken, undefined);
+});
+
+test('mobile client receives tokens and can refresh with a header', async () => {
+  const response = await fetch(`${base}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Pharmavision-Client': 'mobile',
+    },
+    body: JSON.stringify({ email: 'lee@helio.local', password: 'correct-password' }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.user.email, 'lee@helio.local');
+  assert.equal(typeof body.accessToken, 'string');
+  assert.equal(typeof body.refreshToken, 'string');
+  assert.equal(body.passwordHash, undefined);
+  assert.equal(body.user.passwordHash, undefined);
+
+  const me = await fetch(`${base}/api/auth/me`, {
+    headers: { Authorization: `Bearer ${body.accessToken}` },
+  });
+  const meBody = await me.json();
+  assert.equal(me.status, 200);
+  assert.equal(meBody.user.email, 'lee@helio.local');
+
+  const refreshed = await fetch(`${base}/api/auth/refresh`, {
+    method: 'POST',
+    headers: {
+      'X-Pharmavision-Client': 'mobile',
+      'X-Refresh-Token': body.refreshToken,
+    },
+  });
+  const refreshedBody = await refreshed.json();
+  assert.equal(refreshed.status, 200);
+  assert.equal(typeof refreshedBody.accessToken, 'string');
+  assert.notEqual(refreshedBody.refreshToken, body.refreshToken);
+
+  const loggedOut = await fetch(`${base}/api/auth/logout`, {
+    method: 'POST',
+    headers: { 'X-Refresh-Token': refreshedBody.refreshToken },
+  });
+  assert.equal(loggedOut.status, 200);
+
+  const again = await fetch(`${base}/api/auth/refresh`, {
+    method: 'POST',
+    headers: {
+      'X-Pharmavision-Client': 'mobile',
+      'X-Refresh-Token': refreshedBody.refreshToken,
+    },
+  });
+  assert.equal(again.status, 401);
+});

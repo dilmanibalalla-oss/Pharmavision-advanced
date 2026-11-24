@@ -60,9 +60,21 @@ function hashRefreshToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+export function isMobileClient(req) {
+  if (req.headers.origin) return false;
+  return String(req.headers['x-pharmavision-client'] || '') === 'mobile';
+}
+
+function readRefreshToken(req) {
+  const fromCookie = readCookie(req, 'refreshToken');
+  if (fromCookie) return fromCookie;
+  return String(req.headers['x-refresh-token'] || '').trim();
+}
+
 export async function issueSession(res, user) {
   const role = canonicalRole(user.role);
   const refreshToken = crypto.randomBytes(32).toString('base64url');
+  const accessToken = signAccessToken({ _id: user._id, role });
   await User.updateOne(
     { _id: user._id },
     {
@@ -71,11 +83,12 @@ export async function issueSession(res, user) {
       refreshTokenExpiresAt: new Date(Date.now() + REFRESH_SECONDS * 1000),
     }
   );
-  setAuthCookies(res, signAccessToken({ _id: user._id, role }), refreshToken);
+  setAuthCookies(res, accessToken, refreshToken);
+  return { accessToken, refreshToken };
 }
 
 export async function clearSession(req) {
-  const refreshToken = readCookie(req, 'refreshToken');
+  const refreshToken = readRefreshToken(req);
   if (!refreshToken) return;
   await User.updateOne(
     { refreshTokenHash: hashRefreshToken(refreshToken) },
@@ -84,7 +97,7 @@ export async function clearSession(req) {
 }
 
 export async function findRefreshUser(req) {
-  const refreshToken = readCookie(req, 'refreshToken');
+  const refreshToken = readRefreshToken(req);
   if (!refreshToken) return null;
   return User.findOne({
     refreshTokenHash: hashRefreshToken(refreshToken),
