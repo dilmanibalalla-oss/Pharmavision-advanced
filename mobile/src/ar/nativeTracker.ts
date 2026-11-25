@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import type { ComponentType } from 'react';
+import { NativeModules, TurboModuleRegistry } from 'react-native';
 
 export type WorldPlane = {
   points: { x: number; y: number; z: number }[];
@@ -12,8 +13,17 @@ type TrackerProps = {
   onPlane: (plane: WorldPlane) => void;
 };
 
+function viroNativeReady() {
+  if (NativeModules.VRTMaterialManager) return true;
+  try {
+    return Boolean(TurboModuleRegistry.get('VRTMaterialManager'));
+  } catch {
+    return false;
+  }
+}
+
 export function nativeArInThisRuntime() {
-  return Constants.executionEnvironment !== 'storeClient';
+  return Constants.executionEnvironment !== 'storeClient' && viroNativeReady();
 }
 
 export function loadShelfTracker(): ComponentType<TrackerProps> | null {
