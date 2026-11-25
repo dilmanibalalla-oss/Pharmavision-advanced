@@ -25,17 +25,17 @@ Allow inbound TCP on that port in Windows Firewall so the phone can reach it.
 
 Android Studio is not required.
 
-1. Install Expo Go from the Play Store. This project uses Expo SDK 58, so update Expo Go if it asks.
+1. Install Expo Go for SDK 58. The Play Store copy is often an older SDK and will refuse this project. The matching Android app is [Expo Go 58.0.6](https://github.com/expo/expo-go-releases/releases/download/Expo-Go-58.0.6/Expo-Go-58.0.6.apk).
 2. Put the phone and the computer on the same Wi-Fi network.
 3. From `MedSystem/mobile`:
 
 ```bash
-npx expo start
+npx expo start --go
 ```
 
-4. Scan the QR code with Expo Go.
+4. Scan the QR code with that Expo Go app.
 
-`npx expo start` opens the project in Expo Go. It does not build a native Android binary.
+`npx expo start --go` opens the project in Expo Go. It does not build a native Android binary. A plain `npx expo start` serves a development-build link, which Expo Go cannot open.
 
 Expo Go can register a shelf from a photo: place the four corners, name the shelf, and save it through the clinic API. It can also photograph a shelf and upload that scan. Plane detection and world tracking need a development build with ARCore or ARKit. That build is not created by `npx expo start`, and it is not available inside Expo Go. Native AR is not complete until that build has been tried on a phone that supports ARCore or ARKit.
 
@@ -62,7 +62,7 @@ npm test
 1. Start the API from `MedSystem/server` with `npm run dev`.
 2. Set `mobile/.env` to `http://<this-computer-lan-ip>:5000` and restart Expo.
 3. Allow inbound TCP 5000 in Windows Firewall. Keep the phone on the same Wi-Fi.
-4. From `MedSystem/mobile`, run `npx expo start` and open the project in Expo Go for SDK 58.
+4. From `MedSystem/mobile`, run `npx expo start --go` and open the project in Expo Go for SDK 58.
 
 Walk through login, logout, the home counts, inventory, medicine search, a shelf photo with four corners, a scan upload, and alerts. Turn off Wi-Fi once to see the network message. Sign in as a doctor and confirm shelf registration and alert closure stay unavailable. Plane detection cannot be checked in Expo Go.
 
